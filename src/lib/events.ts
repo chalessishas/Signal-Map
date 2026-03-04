@@ -35,7 +35,7 @@ export type BuildingHeatData = {
   cleCount: number;
 };
 
-export async function computeBuildingHeatLevels(): Promise<Map<string, BuildingHeatData>> {
+export async function computeBuildingHeatLevels(category?: string): Promise<Map<string, BuildingHeatData>> {
   const now = new Date();
   const todayEnd = endOfDay(now);
 
@@ -46,6 +46,7 @@ export async function computeBuildingHeatLevels(): Promise<Map<string, BuildingH
       buildingId: { not: null },
       startTime: { lte: addDays(now, 3) },
       OR: [{ endTime: null }, { endTime: { gte: now } }],
+      ...(category ? { category } : {}),
     },
     select: {
       buildingId: true,

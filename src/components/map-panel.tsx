@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { format, formatDistanceToNow } from "date-fns";
 import type { BuildingSummary, HeatLevel } from "@/lib/types";
@@ -52,7 +52,24 @@ const HEAT_STYLES: Record<HeatLevel, { fill: string; fillOp: number; stroke: str
 };
 
 const BG_STYLE = { fill: "#e8dcc4", fillOp: 0.10, stroke: "#d8ccb0", weight: 0.4 };
-const SELECTED_STYLE = { fill: "#f0c040", fillOp: 0.70, stroke: "#d4a020", weight: 3 };
+const SELECTED_STYLE = { fill: "#f0c040", fillOp: 0.70, stroke: "transparent", weight: 0 };
+
+/* ─── Category icon mapping ─── */
+
+const CATEGORY_ICONS: Record<string, string> = {
+  Academic: "\u{1F393}",
+  Social: "\u{1F389}",
+  Arts: "\u{1F3A8}",
+  Performance: "\u{1F3AD}",
+  Fitness: "\u{1F3CB}",
+  Career: "\u{1F4BC}",
+  Athletics: "\u{26BD}",
+  Library: "\u{1F4DA}",
+};
+
+function getCategoryIcon(cat: string): string {
+  return CATEGORY_ICONS[cat] ?? "\u{1F4CC}";
+}
 
 /* ─── Helpers ─── */
 
@@ -84,7 +101,12 @@ function heatTooltip(b: BuildingSummary): string {
 
 /* ─── Component ─── */
 
-export function MapPanel({ initialBuildings }: { initialBuildings: BuildingSummary[] }) {
+type MapPanelProps = {
+  initialBuildings: BuildingSummary[];
+  categories: string[];
+};
+
+export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
   const mapRef = useRef<unknown>(null);
   const mapNodeRef = useRef<HTMLDivElement | null>(null);
   const selectedRef = useRef<{ layer: unknown; building: BuildingSummary | null }>({ layer: null, building: null });
@@ -96,7 +118,20 @@ export function MapPanel({ initialBuildings }: { initialBuildings: BuildingSumma
     loading: false,
   });
 
-  const selectBuilding = useCallback(async (building: BuildingSummary) => {
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  // When a category is active, filter events in the bottom panel
+  const filteredNow = useMemo(() => {
+    if (!activeCategory) return state.now;
+    return state.now.filter((e) => e.category === activeCategory);
+  }, [state.now, activeCategory]);
+
+  const filteredUpcoming = useMemo(() => {
+    if (!activeCategory) return state.upcoming;
+    return state.upcoming.filter((e) => e.category === activeCategory);
+  }, [state.upcoming, activeCategory]);
+
+  const selectBuilding = useCallback(async (building: BuildingSummary, category?: string | null) => {
     setState((prev) => ({ ...prev, building, loading: true }));
 
     const from = new Date();
@@ -106,6 +141,9 @@ export function MapPanel({ initialBuildings }: { initialBuildings: BuildingSumma
       from: from.toISOString(),
       to: to.toISOString(),
     });
+    if (category) {
+      query.set("category", category);
+    }
 
     try {
       const response = await fetch(`/api/events?${query.toString()}`);
@@ -133,6 +171,18 @@ export function MapPanel({ initialBuildings }: { initialBuildings: BuildingSumma
     } catch {
       setState({ building, now: [], upcoming: [], loading: false });
     }
+  }, []);
+
+  // Re-fetch events when category filter changes and a building is selected
+  useEffect(() => {
+    if (state.building) {
+      void selectBuilding(state.building, activeCategory);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCategory]);
+
+  const handleCategoryToggle = useCallback((cat: string) => {
+    setActiveCategory((prev) => (prev === cat ? null : cat));
   }, []);
 
   const resetSelectedStyle = useCallback(() => {
@@ -166,8 +216,8 @@ export function MapPanel({ initialBuildings }: { initialBuildings: BuildingSumma
       (mapRef.current as { flyTo: (c: { lat: number; lng: number }, z: number, o: Record<string, number>) => void })
         .flyTo({ lat: offsetLat, lng: building.lng }, 18, { duration: 0.8 });
     }
-    void selectBuilding(building);
-  }, [selectBuilding, resetSelectedStyle]);
+    void selectBuilding(building, activeCategory);
+  }, [selectBuilding, resetSelectedStyle, activeCategory]);
 
   // Keyboard: Escape to close
   useEffect(() => {
@@ -420,6 +470,30 @@ export function MapPanel({ initialBuildings }: { initialBuildings: BuildingSumma
       {/* Search */}
       <SearchPanel buildings={initialBuildings} onSelect={handleSearchSelect} />
 
+      {/* Category filter bar */}
+      {categories.length > 0 && (
+        <div className="filter-bar">
+          <button
+            type="button"
+            className={`filter-pill${activeCategory === null ? " filter-pill--active" : ""}`}
+            onClick={() => setActiveCategory(null)}
+          >
+            All
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              className={`filter-pill${activeCategory === cat ? " filter-pill--active" : ""}`}
+              onClick={() => handleCategoryToggle(cat)}
+            >
+              <span className="filter-pill-icon">{getCategoryIcon(cat)}</span>
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Legend */}
       <div className="map-legend">
         <div className="legend-item">
@@ -465,6 +539,18 @@ export function MapPanel({ initialBuildings }: { initialBuildings: BuildingSumma
                   <button type="button" className="overlay-close" onClick={closeOverlay}>&times;</button>
                 </div>
               </div>
+              {state.building.description && (
+                <p className="building-description">{state.building.description}</p>
+              )}
+
+              {activeCategory && (
+                <div className="overlay-filter-notice">
+                  Filtered: <strong>{activeCategory}</strong>
+                  <button type="button" className="overlay-filter-clear" onClick={() => setActiveCategory(null)}>
+                    Clear
+                  </button>
+                </div>
+              )}
 
               {state.loading ? (
                 <p className="subtle" style={{ padding: "16px 0", textAlign: "center" }}>Loading events...</p>
@@ -472,14 +558,14 @@ export function MapPanel({ initialBuildings }: { initialBuildings: BuildingSumma
                 <>
                   <div className="overlay-stats">
                     <div className="overlay-stat">
-                      <span className="overlay-stat-num">{state.now.length}</span>
+                      <span className="overlay-stat-num">{filteredNow.length}</span>
                       <span className="overlay-stat-label">Now</span>
                     </div>
                     <div className="overlay-stat">
-                      <span className="overlay-stat-num">{state.upcoming.length}</span>
+                      <span className="overlay-stat-num">{filteredUpcoming.length}</span>
                       <span className="overlay-stat-label">Upcoming</span>
                     </div>
-                    {state.building.nextEventStartsAt && state.now.length === 0 && (
+                    {state.building.nextEventStartsAt && filteredNow.length === 0 && (
                       <div className="overlay-stat overlay-stat--countdown">
                         <span className="overlay-stat-num">
                           {formatDistanceToNow(new Date(state.building.nextEventStartsAt))}
@@ -489,11 +575,11 @@ export function MapPanel({ initialBuildings }: { initialBuildings: BuildingSumma
                     )}
                   </div>
 
-                  {state.now.length > 0 && (
+                  {filteredNow.length > 0 && (
                     <div className="event-section">
                       <h4>Happening Now</h4>
                       <div className="event-list">
-                        {state.now.map((event) => (
+                        {filteredNow.map((event) => (
                           <EventCard key={event.id} event={event} live />
                         ))}
                       </div>
@@ -503,19 +589,23 @@ export function MapPanel({ initialBuildings }: { initialBuildings: BuildingSumma
                   <div className="event-section">
                     <h4>Coming Up</h4>
                     <div className="event-list">
-                      {state.upcoming.length === 0 ? (
-                        <p className="subtle">No upcoming events in the next 3 days</p>
+                      {filteredUpcoming.length === 0 ? (
+                        <p className="subtle">
+                          {activeCategory
+                            ? `No ${activeCategory} events in the next 3 days`
+                            : "No upcoming events in the next 3 days"}
+                        </p>
                       ) : (
-                        state.upcoming.slice(0, 8).map((event) => (
+                        filteredUpcoming.slice(0, 8).map((event) => (
                           <EventCard key={event.id} event={event} />
                         ))
                       )}
                     </div>
                   </div>
 
-                  {state.upcoming.length > 8 && (
+                  {filteredUpcoming.length > 8 && (
                     <Link href={`/building/${state.building.id}`} className="view-all-link">
-                      View all {state.upcoming.length} events &rarr;
+                      View all {filteredUpcoming.length} events &rarr;
                     </Link>
                   )}
 

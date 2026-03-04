@@ -3,6 +3,7 @@ export type HeatLevel = 0 | 1 | 2 | 3 | 4;
 export type BuildingSummary = {
   id: string;
   name: string;
+  description: string | null;
   lat: number;
   lng: number;
   campus: "NORTH" | "SOUTH" | "OTHER";

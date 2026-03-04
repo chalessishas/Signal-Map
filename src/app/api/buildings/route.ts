@@ -6,6 +6,7 @@ export async function GET() {
     select: {
       id: true,
       name: true,
+      description: true,
       lat: true,
       lng: true,
       campus: true,
