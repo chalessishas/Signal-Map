@@ -209,7 +209,7 @@ async function main() {
   await prisma.eventSource.deleteMany();
   await prisma.building.deleteMany();
 
-  const buildings: any[] = [];
+  const buildings: Awaited<ReturnType<typeof prisma.building.create>>[] = [];
   for (const b of UNC_BUILDINGS) {
     const created = await prisma.building.create({
       data: {

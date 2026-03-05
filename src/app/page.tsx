@@ -37,6 +37,7 @@ export default async function HomePage() {
     const heat = heatMap.get(b.id);
     return {
       ...b,
+      campus: b.campus as "NORTH" | "SOUTH" | "OTHER",
       aliases: JSON.parse(b.aliases) as string[],
       eventCount: heat?.eventCount ?? 0,
       heatLevel: heat?.heatLevel ?? 0 as const,
