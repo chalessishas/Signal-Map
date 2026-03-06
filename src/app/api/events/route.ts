@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
 const querySchema = z.object({
-  buildingId: z.string().cuid().optional(),
+  buildingId: z.string().min(1).optional(),
   category: z.string().optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional()
