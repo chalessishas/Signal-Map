@@ -16,19 +16,20 @@ export const maxDuration = 60; // allow up to 60s for ingestion
  *   - Internal background trigger from page load (bypasses auth)
  */
 export async function GET(request: NextRequest) {
-  // Allow internal calls (no origin / same origin) but protect external access
+  // Protect external access — require valid token or Vercel Cron secret
   const adminToken = process.env.ADMIN_TOKEN;
   if (adminToken) {
     const queryToken = request.nextUrl.searchParams.get("token");
     const headerToken = request.headers.get("authorization")?.replace("Bearer ", "");
     const cronSecret = request.headers.get("x-vercel-cron-secret");
 
-    const isVercelCron = cronSecret === process.env.CRON_SECRET && process.env.CRON_SECRET;
+    const isVercelCron = !!(cronSecret && process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET);
     const isAuthed = queryToken === adminToken || headerToken === adminToken;
 
-    // Allow if: Vercel Cron, valid token, or internal server-side call (no referer from external)
-    const referer = request.headers.get("referer");
-    const isInternal = !referer || referer.includes(request.nextUrl.origin);
+    // Internal server-side calls must include a secret header to prove they originate
+    // from our own server code, not from an external request with no referer.
+    const internalSecret = request.headers.get("x-internal-secret");
+    const isInternal = !!(internalSecret && process.env.ADMIN_TOKEN && internalSecret === process.env.ADMIN_TOKEN);
 
     if (!isVercelCron && !isAuthed && !isInternal) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

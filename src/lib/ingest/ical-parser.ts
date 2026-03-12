@@ -32,13 +32,43 @@ function unescapeIcal(value: string): string {
     .trim();
 }
 
+/**
+ * Mapping of common IANA timezone names to UTC offset in minutes.
+ * UNC is in Eastern Time, so we handle US timezones explicitly.
+ */
+const TZ_OFFSETS: Record<string, number> = {
+  "America/New_York": -5 * 60,
+  "America/Chicago": -6 * 60,
+  "America/Denver": -7 * 60,
+  "America/Los_Angeles": -8 * 60,
+  "US/Eastern": -5 * 60,
+  "US/Central": -6 * 60,
+  "US/Mountain": -7 * 60,
+  "US/Pacific": -8 * 60,
+};
+
+/** Check if a date falls in US Eastern Daylight Time (rough approximation) */
+function isEDT(date: Date): boolean {
+  const year = date.getUTCFullYear();
+  // DST: second Sunday of March to first Sunday of November
+  const marchSecondSunday = new Date(Date.UTC(year, 2, 8));
+  marchSecondSunday.setUTCDate(8 + (7 - marchSecondSunday.getUTCDay()) % 7);
+  const novFirstSunday = new Date(Date.UTC(year, 10, 1));
+  novFirstSunday.setUTCDate(1 + (7 - novFirstSunday.getUTCDay()) % 7);
+  return date >= marchSecondSunday && date < novFirstSunday;
+}
+
 function parseIcalDate(value: string): Date | undefined {
   // Formats: 20260301T190000Z, 20260301T190000, 20260301, TZID=...:20260301T190000
   let cleaned = value;
+  let tzid: string | undefined;
 
-  // Strip TZID prefix
-  const tzidMatch = cleaned.match(/^(?:TZID=[^:]+:)?(.+)$/);
-  if (tzidMatch) cleaned = tzidMatch[1];
+  // Extract TZID prefix if present
+  const tzidMatch = cleaned.match(/^TZID=([^:]+):(.+)$/);
+  if (tzidMatch) {
+    tzid = tzidMatch[1];
+    cleaned = tzidMatch[2];
+  }
 
   // VALUE=DATE:20260301
   const valueDateMatch = cleaned.match(/^(?:VALUE=DATE:)?(\d{8})$/);
@@ -51,9 +81,34 @@ function parseIcalDate(value: string): Date | undefined {
   const dtMatch = cleaned.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
   if (dtMatch) {
     const [, y, mo, d, h, mi, s, z] = dtMatch;
-    const iso = `${y}-${mo}-${d}T${h}:${mi}:${s}${z ? "Z" : ""}`;
-    const date = new Date(iso);
-    return isNaN(date.getTime()) ? undefined : date;
+
+    if (z) {
+      // Already UTC
+      const date = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s}Z`);
+      return isNaN(date.getTime()) ? undefined : date;
+    }
+
+    if (tzid) {
+      // We have timezone info — convert local time to UTC
+      const baseOffset = TZ_OFFSETS[tzid];
+      if (baseOffset !== undefined) {
+        // Create the date as if in UTC, then adjust by timezone offset
+        const utcDate = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s}Z`);
+        // Check DST for US Eastern (offset is +1h during DST)
+        const isDST = tzid.includes("Eastern") || tzid.includes("New_York")
+          ? isEDT(utcDate) : false;
+        const offsetMinutes = baseOffset + (isDST ? 60 : 0);
+        utcDate.setUTCMinutes(utcDate.getUTCMinutes() - offsetMinutes);
+        return isNaN(utcDate.getTime()) ? undefined : utcDate;
+      }
+    }
+
+    // No timezone info and no Z — assume US Eastern (UNC's timezone)
+    const utcDate = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s}Z`);
+    const isDST = isEDT(utcDate);
+    const eastOffset = -5 * 60 + (isDST ? 60 : 0);
+    utcDate.setUTCMinutes(utcDate.getUTCMinutes() - eastOffset);
+    return isNaN(utcDate.getTime()) ? undefined : utcDate;
   }
 
   // Fallback: try native parsing

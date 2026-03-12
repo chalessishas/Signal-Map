@@ -3,6 +3,7 @@ import { computeBuildingHeatLevels } from "@/lib/events";
 import { isDataStale } from "@/lib/ingest/freshness";
 import { ingestAllSources } from "@/lib/ingest/service";
 import { MapPanel } from "@/components/map-panel";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60; // re-render from DB every 60s
@@ -12,9 +13,19 @@ export default async function HomePage() {
   // The DB-level staleness check in isDataStale() naturally prevents
   // redundant ingests — once a run updates lastSuccessAt, subsequent
   // checks will return false until the next stale window.
-  const stale = await isDataStale();
+  let stale = false;
+  try {
+    stale = await isDataStale();
+  } catch (err) {
+    console.error("Freshness check failed, skipping ingest:", err);
+  }
+
   if (stale) {
-    ingestAllSources().catch((err) => {
+    // Fire-and-forget with a 55s timeout to prevent runaway ingests
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Ingest timeout (55s)")), 55_000)
+    );
+    Promise.race([ingestAllSources(), timeout]).catch((err) => {
       console.error("Background ingest failed:", err);
     });
   }
@@ -31,14 +42,30 @@ export default async function HomePage() {
     orderBy: [{ campus: "asc" }, { name: "asc" }],
   });
 
-  const heatMap = await computeBuildingHeatLevels();
+  let heatMap: Map<string, { eventCount: number; heatLevel: number; happeningNowCount: number; nextEventStartsAt: Date | null; cleCount: number }>;
+  try {
+    heatMap = await computeBuildingHeatLevels();
+  } catch (err) {
+    console.error("Failed to compute heat levels:", err);
+    heatMap = new Map();
+  }
 
   const buildings = rows.map((b) => {
     const heat = heatMap.get(b.id);
+
+    // Safely parse aliases — column stores JSON string, but guard against malformed data
+    let aliases: string[] = [];
+    try {
+      const parsed = JSON.parse(b.aliases);
+      if (Array.isArray(parsed)) aliases = parsed;
+    } catch {
+      console.warn(`Malformed aliases JSON for building ${b.id}:`, b.aliases);
+    }
+
     return {
       ...b,
       campus: b.campus as "NORTH" | "SOUTH" | "OTHER",
-      aliases: JSON.parse(b.aliases) as string[],
+      aliases,
       eventCount: heat?.eventCount ?? 0,
       heatLevel: heat?.heatLevel ?? 0 as const,
       happeningNowCount: heat?.happeningNowCount ?? 0,
@@ -86,7 +113,9 @@ export default async function HomePage() {
         </div>
       </aside>
       <section className="map-wrap">
-        <MapPanel initialBuildings={buildings} categories={categories} />
+        <ErrorBoundary>
+          <MapPanel initialBuildings={buildings} categories={categories} />
+        </ErrorBoundary>
       </section>
     </main>
   );

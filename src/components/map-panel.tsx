@@ -110,6 +110,7 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
   const mapRef = useRef<unknown>(null);
   const mapNodeRef = useRef<HTMLDivElement | null>(null);
   const selectedRef = useRef<{ layer: unknown; building: BuildingSummary | null }>({ layer: null, building: null });
+  const abortRef = useRef<AbortController | null>(null);
 
   const [state, setState] = useState<PanelState>({
     building: null,
@@ -132,6 +133,13 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
   }, [state.upcoming, activeCategory]);
 
   const selectBuilding = useCallback(async (building: BuildingSummary, category?: string | null) => {
+    // Cancel any in-flight request to prevent race conditions
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setState((prev) => ({ ...prev, building, loading: true }));
 
     const from = new Date();
@@ -146,7 +154,9 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
     }
 
     try {
-      const response = await fetch(`/api/events?${query.toString()}`);
+      const response = await fetch(`/api/events?${query.toString()}`, {
+        signal: controller.signal,
+      });
       if (!response.ok) {
         setState({ building, now: [], upcoming: [], loading: false });
         return;
@@ -168,7 +178,9 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
       }
 
       setState({ building, now, upcoming, loading: false });
-    } catch {
+    } catch (err) {
+      // Ignore aborted requests — a newer request has taken over
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setState({ building, now: [], upcoming: [], loading: false });
     }
   }, []);
@@ -232,6 +244,9 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
   useEffect(() => {
     if (!mapNodeRef.current || mapRef.current) return;
     let cancelled = false;
+    // Track the map instance locally so cleanup can always reach it,
+    // even if the Promise resolves after the component unmounts.
+    let localMap: { remove: () => void } | null = null;
 
     import("leaflet").then(async (L) => {
       if (cancelled || !mapNodeRef.current) return;
@@ -451,14 +466,23 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
         }
       });
 
+      localMap = map;
       mapRef.current = map;
     });
 
     return () => {
       cancelled = true;
-      if (mapRef.current) {
-        (mapRef.current as { remove: () => void }).remove();
+      // Use localMap as fallback — if the promise resolved but mapRef
+      // wasn't set yet (unlikely but possible), we still clean up.
+      const mapToRemove = mapRef.current ?? localMap;
+      if (mapToRemove) {
+        (mapToRemove as { remove: () => void }).remove();
         mapRef.current = null;
+        localMap = null;
+      }
+      // Cancel any pending fetch
+      if (abortRef.current) {
+        abortRef.current.abort();
       }
     };
   }, [initialBuildings, selectBuilding, closeOverlay]);

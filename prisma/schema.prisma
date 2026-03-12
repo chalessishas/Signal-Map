@@ -24,7 +24,7 @@ model Building {
 
 model Event {
   id           String   @id @default(cuid())
-  sourceId     String?
+  sourceId     String?  @unique
   title        String
   description  String?
   startTime    DateTime
@@ -40,6 +40,11 @@ model Event {
   updatedAt    DateTime @updatedAt
 
   building Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+
+  @@index([buildingId])
+  @@index([startTime])
+  @@index([status])
+  @@index([category])
 }
 
 model EventSource {

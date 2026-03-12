@@ -51,8 +51,13 @@ function extractDateFromContent(html: string): { start?: Date; end?: Date } {
   return {};
 }
 
-// Memorial Hall coordinates (main CPA venue)
-const MEMORIAL_HALL = { lat: 35.9117, lng: -79.0506 };
+// Known CPA venue coordinates
+const VENUE_COORDS: Record<string, { lat: number; lng: number }> = {
+  "Memorial Hall":     { lat: 35.9117, lng: -79.0506 },
+  "Gerrard Hall":      { lat: 35.9119, lng: -79.0512 },
+  "Paul Green Theatre": { lat: 35.9100, lng: -79.0546 },
+  "Forest Theatre":    { lat: 35.9104, lng: -79.0556 },
+};
 
 function normalizeEvent(item: WPEvent): ParsedEvent | null {
   const title = stripHtml(item.title.rendered);
@@ -105,6 +110,9 @@ function normalizeEvent(item: WPEvent): ParsedEvent | null {
     locationText = "Forest Theatre";
   }
 
+  // Use venue-specific coordinates instead of hardcoding Memorial Hall
+  const coords = VENUE_COORDS[locationText] ?? VENUE_COORDS["Memorial Hall"];
+
   return {
     sourceId: `cpa-${item.id}`,
     title,
@@ -114,8 +122,8 @@ function normalizeEvent(item: WPEvent): ParsedEvent | null {
     locationText,
     organizer: "Carolina Performing Arts",
     category: "Performance",
-    latitude: MEMORIAL_HALL.lat,
-    longitude: MEMORIAL_HALL.lng,
+    latitude: coords.lat,
+    longitude: coords.lng,
   };
 }
 

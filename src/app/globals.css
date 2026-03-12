@@ -202,22 +202,22 @@ a {
 
 .building-heat-4 {
   animation: breathe-fast 2.5s ease-in-out infinite;
-  will-change: filter;
+  will-change: auto;
 }
 
 .building-heat-3 {
   animation: breathe-med 3.5s ease-in-out infinite;
-  will-change: filter;
+  will-change: auto;
 }
 
 .building-heat-2 {
   animation: breathe-slow 5s ease-in-out infinite;
-  will-change: filter;
+  will-change: auto;
 }
 
 .building-heat-1 {
   animation: breathe-faint 7s ease-in-out infinite;
-  will-change: filter;
+  will-change: auto;
 }
 
 /* Remove browser focus outline on map building paths */
@@ -717,7 +717,8 @@ a {
   transition: background 0.1s;
 }
 
-.search-result-item:hover {
+.search-result-item:hover,
+.search-result-item--active {
   background: var(--gold-soft);
 }
 

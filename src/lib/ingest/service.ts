@@ -55,10 +55,13 @@ export async function ingestSource(sourceId: string): Promise<IngestResult> {
     const matched = normalized.filter((e) => e.buildingId).length;
     console.log(`  ${parsed.length} parsed → ${matched}/${normalized.length} matched to buildings`);
 
+    // Collect all sourceIds from this ingest run to detect removed events
+    const ingestedSourceIds = new Set<string>();
+
     for (const item of normalized) {
       const dedupeSourceId = item.sourceId;
       if (dedupeSourceId) {
-        const existing = await prisma.event.findFirst({
+        const existing = await prisma.event.findUnique({
           where: { sourceId: dedupeSourceId }
         });
 
@@ -79,6 +82,7 @@ export async function ingestSource(sourceId: string): Promise<IngestResult> {
             }
           });
           updatedCount += 1;
+          ingestedSourceIds.add(dedupeSourceId);
           continue;
         }
       }
@@ -99,6 +103,30 @@ export async function ingestSource(sourceId: string): Promise<IngestResult> {
         }
       });
       newCount += 1;
+      if (item.sourceId) ingestedSourceIds.add(item.sourceId);
+    }
+
+    // Mark events as CANCELLED if they were from this source but no longer appear
+    // in the feed (i.e., they've been removed/cancelled upstream).
+    if (ingestedSourceIds.size > 0) {
+      const staleEvents = await prisma.event.findMany({
+        where: {
+          sourceRef: source.id,
+          status: "ACTIVE",
+          sourceId: { not: null, notIn: Array.from(ingestedSourceIds) },
+          // Only mark future events as cancelled; past events are irrelevant
+          startTime: { gte: new Date() },
+        },
+        select: { id: true },
+      });
+
+      if (staleEvents.length > 0) {
+        await prisma.event.updateMany({
+          where: { id: { in: staleEvents.map((e) => e.id) } },
+          data: { status: "CANCELLED" },
+        });
+        console.log(`  🗑 Marked ${staleEvents.length} removed events as CANCELLED`);
+      }
     }
 
     await prisma.eventSource.update({

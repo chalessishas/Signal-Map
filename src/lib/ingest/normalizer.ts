@@ -5,6 +5,43 @@ function simplify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+/** Split into lowercase alpha-only tokens for word-level matching */
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((t) => t.length > 1);
+}
+
+/**
+ * Score how well `source` matches `candidate`.
+ * Returns a value between 0 (no match) and 1 (perfect).
+ * Uses a combination of substring inclusion and token overlap.
+ */
+function matchScore(source: string, candidate: string): number {
+  const sSimple = simplify(source);
+  const cSimple = simplify(candidate);
+
+  // Exact substring match (strongest signal)
+  if (sSimple.includes(cSimple) || cSimple.includes(sSimple)) return 1;
+
+  // Token overlap — for "Davis Library" matching "Davis Lib" or reordered words
+  const sTokens = tokenize(source);
+  const cTokens = tokenize(candidate);
+  if (cTokens.length === 0) return 0;
+
+  let matched = 0;
+  for (const ct of cTokens) {
+    if (sTokens.some((st) => st.includes(ct) || ct.includes(st))) {
+      matched++;
+    }
+  }
+
+  const overlap = matched / cTokens.length;
+  // Require at least 60% token overlap to avoid false positives
+  return overlap >= 0.6 ? overlap * 0.9 : 0;
+}
+
 /** Haversine distance in meters */
 function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -42,30 +79,47 @@ export async function resolveBuildingId(
   lng: number | undefined,
   buildings: BuildingRow[]
 ): Promise<string | undefined> {
-  // Strategy 1: Match by name/alias
+  // Strategy 1: Match by name/alias with scored fuzzy matching
   if (locationText) {
-    const source = simplify(locationText);
-    for (const building of buildings) {
-      const aliases: string[] = JSON.parse(building.aliases);
-      const labels = [building.name, ...aliases];
-      if (labels.some((alias) => source.includes(simplify(alias)))) {
-        return building.id;
-      }
-    }
-
-    // Strategy 1b: Check abbreviation prefix (e.g. "GL-0104" → "greenlaw")
+    // Strategy 1a: Check abbreviation prefix first (e.g. "GL-0104" → "greenlaw")
     const prefixMatch = locationText.match(/^([A-Za-z]{2,4})[\s\-]/);
     if (prefixMatch) {
       const abbr = prefixMatch[1].toLowerCase();
       const expanded = ABBREVIATIONS[abbr];
       if (expanded) {
         for (const building of buildings) {
-          if (simplify(building.name).includes(simplify(expanded))) {
+          if (matchScore(building.name, expanded) >= 0.6) {
             return building.id;
           }
         }
       }
     }
+
+    // Strategy 1b: Score each building against the location text
+    let bestScore = 0;
+    let bestId: string | undefined;
+
+    for (const building of buildings) {
+      let aliases: string[] = [];
+      try {
+        const parsed = JSON.parse(building.aliases);
+        if (Array.isArray(parsed)) aliases = parsed;
+      } catch {
+        // malformed aliases — skip
+      }
+
+      const labels = [building.name, ...aliases];
+      for (const label of labels) {
+        const score = matchScore(locationText, label);
+        if (score > bestScore) {
+          bestScore = score;
+          bestId = building.id;
+        }
+      }
+    }
+
+    // Require at least 0.6 to avoid false positives
+    if (bestId && bestScore >= 0.6) return bestId;
   }
 
   // Strategy 2: Match by coordinates (find nearest building within 100m)
