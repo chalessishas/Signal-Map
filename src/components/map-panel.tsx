@@ -5,6 +5,7 @@ import Link from "next/link";
 import { format, formatDistanceToNow } from "date-fns";
 import type { BuildingSummary, HeatLevel } from "@/lib/types";
 import { SearchPanel } from "@/components/search-panel";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /* ─── Types ─── */
 
@@ -44,15 +45,15 @@ type GeoJSONCollection = {
 const UNC_CENTER: [number, number] = [35.9108, -79.0472];
 
 const HEAT_STYLES: Record<HeatLevel, { fill: string; fillOp: number; stroke: string; weight: number }> = {
-  0: { fill: "#c8c0aa", fillOp: 0.22, stroke: "#a8a08a", weight: 0.8 },
-  1: { fill: "#5b9e7d", fillOp: 0.40, stroke: "#3d7a5a", weight: 1.2 },
-  2: { fill: "#d4a62a", fillOp: 0.50, stroke: "#b08a18", weight: 1.3 },
-  3: { fill: "#e07830", fillOp: 0.55, stroke: "#c05a18", weight: 1.5 },
-  4: { fill: "#d93636", fillOp: 0.65, stroke: "#b82020", weight: 1.8 },
+  0: { fill: "#adb5bd", fillOp: 0.18, stroke: "#868e96", weight: 0.8 },
+  1: { fill: "#40c057", fillOp: 0.35, stroke: "#2f9e44", weight: 1.2 },
+  2: { fill: "#fab005", fillOp: 0.42, stroke: "#e67700", weight: 1.3 },
+  3: { fill: "#fd7e14", fillOp: 0.48, stroke: "#d9480f", weight: 1.5 },
+  4: { fill: "#fa5252", fillOp: 0.58, stroke: "#e03131", weight: 1.8 },
 };
 
-const BG_STYLE = { fill: "#e8dcc4", fillOp: 0.10, stroke: "#d8ccb0", weight: 0.4 };
-const SELECTED_STYLE = { fill: "#f0c040", fillOp: 0.70, stroke: "transparent", weight: 0 };
+const BG_STYLE = { fill: "#ced4da", fillOp: 0.08, stroke: "#adb5bd", weight: 0.4 };
+const SELECTED_STYLE = { fill: "#4263eb", fillOp: 0.65, stroke: "transparent", weight: 0 };
 
 /* ─── Category icon mapping ─── */
 
@@ -490,6 +491,9 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
   return (
     <>
       <div ref={mapNodeRef} style={{ position: "absolute", inset: 0 }} />
+
+      {/* Theme toggle */}
+      <ThemeToggle />
 
       {/* Search */}
       <SearchPanel buildings={initialBuildings} onSelect={handleSearchSelect} />
