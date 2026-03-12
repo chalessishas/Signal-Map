@@ -44,34 +44,32 @@ type GeoJSONCollection = {
 
 const UNC_CENTER: [number, number] = [35.9108, -79.0472];
 
-// Constellation star sizes based on heat level
+// Much larger star sizes for visibility
 const STAR_RADIUS: Record<HeatLevel, number> = {
   0: 0,
-  1: 4,
-  2: 6,
-  3: 8,
-  4: 10,
+  1: 6,
+  2: 9,
+  3: 12,
+  4: 16,
 };
 
-// Star colors (warm white to hot colors for higher heat)
-const STAR_COLORS: Record<HeatLevel, { fill: string; glow: string; glowSize: number }> = {
-  0: { fill: "#6b7280", glow: "rgba(107,114,128,0)", glowSize: 0 },
-  1: { fill: "#e8e8e0", glow: "rgba(232,232,224,0.4)", glowSize: 8 },
-  2: { fill: "#ffd666", glow: "rgba(255,214,102,0.5)", glowSize: 12 },
-  3: { fill: "#ff9f43", glow: "rgba(255,159,67,0.6)", glowSize: 16 },
-  4: { fill: "#ff6b6b", glow: "rgba(255,107,107,0.7)", glowSize: 22 },
+// Vivid star colors with strong glows
+const STAR_COLORS: Record<HeatLevel, { fill: string; glow: string; outer: string; glowSize: number }> = {
+  0: { fill: "#3a3f50", glow: "rgba(58,63,80,0)", outer: "rgba(58,63,80,0)", glowSize: 0 },
+  1: { fill: "#d4d4cc", glow: "rgba(212,212,204,0.5)", outer: "rgba(212,212,204,0.15)", glowSize: 18 },
+  2: { fill: "#ffd666", glow: "rgba(255,214,102,0.65)", outer: "rgba(255,214,102,0.2)", glowSize: 26 },
+  3: { fill: "#ff9f43", glow: "rgba(255,159,67,0.7)", outer: "rgba(255,159,67,0.25)", glowSize: 34 },
+  4: { fill: "#ff6b6b", glow: "rgba(255,107,107,0.8)", outer: "rgba(255,107,107,0.3)", glowSize: 44 },
 };
 
-// CLE special color
-const CLE_GLOW = "rgba(77,171,247,0.7)";
 const CLE_COLOR = "#4dabf7";
 
-// Ghost polygon styles (very subtle building outlines)
-const GHOST_STYLE = { fill: "#ffffff", fillOp: 0.03, stroke: "rgba(255,255,255,0.06)", weight: 0.5 };
-const GHOST_ACTIVE_STYLE = { fill: "#ffffff", fillOp: 0.06, stroke: "rgba(255,255,255,0.12)", weight: 0.8 };
+// Ghost building styles — slightly more visible
+const GHOST_STYLE = { fill: "#ffffff", fillOp: 0.04, stroke: "rgba(255,255,255,0.08)", weight: 0.6 };
+const GHOST_ACTIVE_STYLE = { fill: "#ffffff", fillOp: 0.08, stroke: "rgba(255,255,255,0.18)", weight: 1 };
 
-// Max distance (meters) between buildings to draw constellation lines
-const CONSTELLATION_LINK_DIST = 300;
+// Constellation link distance
+const CONSTELLATION_LINK_DIST = 400;
 
 /* ─── Category icon mapping ─── */
 
@@ -102,6 +100,84 @@ function distM(lat1: number, lng1: number, lat2: number, lng2: number): number {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+/* ─── Star Field Canvas (ambient background particles) ─── */
+
+function StarFieldCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    const stars: { x: number; y: number; r: number; speed: number; phase: number; brightness: number }[] = [];
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    // Generate ambient stars
+    for (let i = 0; i < 180; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.2 + 0.3,
+        speed: Math.random() * 0.4 + 0.1,
+        phase: Math.random() * Math.PI * 2,
+        brightness: Math.random() * 0.4 + 0.1,
+      });
+    }
+
+    const draw = (t: number) => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (const s of stars) {
+        const twinkle = Math.sin(t * 0.001 * s.speed + s.phase) * 0.5 + 0.5;
+        const alpha = s.brightness * (0.4 + twinkle * 0.6);
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 210, 230, ${alpha})`;
+        ctx.fill();
+
+        // Subtle glow for brighter stars
+        if (s.r > 0.8) {
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r * 3, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(180, 200, 240, ${alpha * 0.08})`;
+          ctx.fill();
+        }
+      }
+
+      animId = requestAnimationFrame(draw);
+    };
+
+    animId = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: "none",
+        opacity: 0.7,
+      }}
+    />
+  );
+}
+
 /* ─── Component ─── */
 
 type MapPanelProps = {
@@ -122,8 +198,7 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
   });
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [hoveredBuilding, setHoveredBuilding] = useState<BuildingSummary | null>(null);
-  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [filterExpanded, setFilterExpanded] = useState(false);
 
   // Force dark theme on mount for constellation mode
   useEffect(() => {
@@ -240,8 +315,8 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
 
       L.control.zoom({ position: "bottomright" }).addTo(map);
 
-      // Dark tile layer for constellation effect
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      // Dark tile layer — using dark_nolabels for cleaner look
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
         maxZoom: 19,
       }).addTo(map);
@@ -304,7 +379,7 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
         }
       }
 
-      // ── Layer 1: Ghost building polygons (very subtle) ──
+      // ── Layer 1: Ghost building polygons ──
       L.geoJSON(geojson as GeoJSON.GeoJsonObject, {
         style: (feature) => {
           if (!feature) return {};
@@ -330,19 +405,18 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
           };
         },
         onEachFeature: (_feature, layer) => {
-          // No interactions on ghost polys
           (layer as L.Path).options.interactive = false;
         },
       }).addTo(map);
 
-      // ── Collect active buildings for star/constellation layers ──
+      // ── Collect active buildings ──
       for (const building of initialBuildings) {
         if (building.heatLevel > 0) {
           activeBuildings.push(building);
         }
       }
 
-      // ── Layer 2: Constellation lines (connect nearby active buildings) ──
+      // ── Layer 2: Constellation lines (bright, animated, visible!) ──
       const drawnPairs = new Set<string>();
       for (let i = 0; i < activeBuildings.length; i++) {
         for (let j = i + 1; j < activeBuildings.length; j++) {
@@ -354,20 +428,30 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
             if (drawnPairs.has(pairKey)) continue;
             drawnPairs.add(pairKey);
 
-            // Line opacity based on heat sum
             const heatSum = a.heatLevel + b.heatLevel;
-            const opacity = Math.min(0.08 + heatSum * 0.04, 0.35);
+            const opacity = Math.min(0.2 + heatSum * 0.08, 0.65);
+            const weight = Math.min(0.8 + heatSum * 0.2, 2.0);
 
+            // Glow line (thicker, more transparent)
             L.polyline(
-              [
-                [a.lat, a.lng],
-                [b.lat, b.lng],
-              ],
+              [[a.lat, a.lng], [b.lat, b.lng]],
               {
-                color: "rgba(255,255,255,0.5)",
-                weight: 0.8,
+                color: "#7c8cf5",
+                weight: weight + 4,
+                opacity: opacity * 0.2,
+                className: "constellation-glow",
+                interactive: false,
+              }
+            ).addTo(map);
+
+            // Core line
+            L.polyline(
+              [[a.lat, a.lng], [b.lat, b.lng]],
+              {
+                color: "rgba(180, 195, 255, 0.9)",
+                weight,
                 opacity,
-                dashArray: "4 6",
+                dashArray: "6 4",
                 className: "constellation-line",
                 interactive: false,
               }
@@ -376,49 +460,63 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
         }
       }
 
-      // ── Layer 3: Star markers ──
+      // ── Layer 3: Star markers (multi-layer glow system) ──
       for (const building of activeBuildings) {
         const hl = building.heatLevel as HeatLevel;
         const star = STAR_COLORS[hl];
         const radius = STAR_RADIUS[hl];
         const isCLE = building.cleCount > 0;
 
-        // Outer glow circle
+        // Layer A: Wide outer glow (nebula effect)
         if (star.glowSize > 0) {
           L.circleMarker([building.lat, building.lng], {
             radius: star.glowSize,
             fillColor: isCLE ? CLE_COLOR : star.fill,
-            fillOpacity: isCLE ? 0.15 : 0.1,
+            fillOpacity: 0.12,
             color: "transparent",
             weight: 0,
+            className: `star-nebula star-nebula-${hl}`,
+            interactive: false,
+          }).addTo(map);
+        }
+
+        // Layer B: Middle glow ring
+        if (star.glowSize > 0) {
+          L.circleMarker([building.lat, building.lng], {
+            radius: radius + 8,
+            fillColor: isCLE ? CLE_COLOR : star.fill,
+            fillOpacity: 0.2,
+            color: isCLE ? CLE_COLOR : star.glow,
+            weight: 1.5,
+            opacity: 0.3,
             className: `star-glow star-glow-${hl}${isCLE ? " star-cle-glow" : ""}`,
             interactive: false,
           }).addTo(map);
         }
 
-        // CLE halo ring
+        // Layer C: CLE orbit ring
         if (isCLE) {
           L.circleMarker([building.lat, building.lng], {
-            radius: radius + 6,
+            radius: radius + 14,
             fillColor: "transparent",
             fillOpacity: 0,
             color: CLE_COLOR,
             weight: 1.5,
-            opacity: 0.5,
-            dashArray: "3 3",
+            opacity: 0.6,
+            dashArray: "4 4",
             className: "star-cle-ring",
             interactive: false,
           }).addTo(map);
         }
 
-        // Core star
+        // Layer D: Core star (bright, solid)
         const starMarker = L.circleMarker([building.lat, building.lng], {
           radius,
           fillColor: star.fill,
-          fillOpacity: 0.95,
-          color: star.fill,
-          weight: 1,
-          opacity: 0.6,
+          fillOpacity: 1,
+          color: "#ffffff",
+          weight: 1.5,
+          opacity: 0.8,
           className: `star-core star-core-${hl}${isCLE ? " star-cle" : ""}`,
         });
 
@@ -427,7 +525,7 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
           `<span class="star-tooltip-name">${building.name}</span>`,
         ];
         if (building.happeningNowCount > 0) {
-          tooltipLines.push(`<span class="star-tooltip-live">${building.happeningNowCount} happening now</span>`);
+          tooltipLines.push(`<span class="star-tooltip-live">\u2022 ${building.happeningNowCount} happening now</span>`);
         } else if (building.nextEventStartsAt) {
           const dist = formatDistanceToNow(new Date(building.nextEventStartsAt), { addSuffix: false });
           tooltipLines.push(`<span class="star-tooltip-time">Next in ${dist}</span>`);
@@ -436,37 +534,22 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
           tooltipLines.push(`<span class="star-tooltip-count">${building.eventCount} events</span>`);
         }
         if (isCLE) {
-          tooltipLines.push(`<span class="star-tooltip-cle">CLE ${building.cleCount}</span>`);
+          tooltipLines.push(`<span class="star-tooltip-cle">\u2726 CLE ${building.cleCount}</span>`);
         }
 
         starMarker.bindTooltip(tooltipLines.join("<br>"), {
           direction: "top",
-          offset: [0, -radius - 4],
+          offset: [0, -radius - 6],
           className: "star-tooltip",
         });
 
-        // Hover → show building in state for hover card
-        starMarker.on("mouseover", (e: L.LeafletEvent) => {
-          setHoveredBuilding(building);
-          const containerPoint = map.latLngToContainerPoint(
-            (e as L.LeafletMouseEvent).latlng
-          );
-          setHoverPos({ x: containerPoint.x, y: containerPoint.y });
-        });
-
-        starMarker.on("mouseout", () => {
-          setHoveredBuilding(null);
-          setHoverPos(null);
-        });
-
-        // Click → select building, show bottom detail panel
+        // Click → select building
         starMarker.on("click", (e: L.LeafletEvent) => {
           L.DomEvent.stopPropagation(e as unknown as Event);
           const offsetLat = building.lat - 0.0012;
           map.flyTo(L.latLng(offsetLat, building.lng), 18, { duration: 0.8 });
           setState((prev) => ({ ...prev, building, loading: true }));
 
-          // Fetch events
           const from = new Date();
           const to = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
           const query = new URLSearchParams({
@@ -500,12 +583,9 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
         starMarker.addTo(map);
       }
 
-      // Click on map to close
+      // Click map to close
       map.on("click", () => {
-        if (state.building) {
-          setState({ building: null, now: [], upcoming: [], loading: false });
-          map.flyTo(UNC_CENTER, 16, { duration: 0.6 });
-        }
+        setState({ building: null, now: [], upcoming: [], loading: false });
       });
 
       localMap = map;
@@ -524,9 +604,20 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
     };
   }, [initialBuildings, selectBuilding, closeOverlay]);
 
+  // Count visible categories for compact display
+  const visibleCatCount = 5;
+  const mainCats = categories.slice(0, visibleCatCount);
+  const extraCats = categories.slice(visibleCatCount);
+
   return (
     <>
-      <div ref={mapNodeRef} style={{ position: "absolute", inset: 0 }} />
+      {/* Ambient star field canvas */}
+      <StarFieldCanvas />
+
+      <div ref={mapNodeRef} style={{ position: "absolute", inset: 0, zIndex: 1 }} />
+
+      {/* Vignette overlay for depth */}
+      <div className="vignette-overlay" />
 
       {/* Theme toggle */}
       <ThemeToggle />
@@ -561,17 +652,17 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
         </div>
       </div>
 
-      {/* Category filter bar — bottom center */}
+      {/* Category filter — compact bottom pill with overflow menu */}
       {categories.length > 0 && (
         <div className="filter-bar">
           <button
             type="button"
             className={`filter-pill${activeCategory === null ? " filter-pill--active" : ""}`}
-            onClick={() => setActiveCategory(null)}
+            onClick={() => { setActiveCategory(null); setFilterExpanded(false); }}
           >
             All
           </button>
-          {categories.map((cat) => (
+          {mainCats.map((cat) => (
             <button
               key={cat}
               type="button"
@@ -579,31 +670,35 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
               onClick={() => handleCategoryToggle(cat)}
             >
               <span className="filter-pill-icon">{getCategoryIcon(cat)}</span>
-              {cat}
+              {cat.length > 16 ? cat.slice(0, 14) + "\u2026" : cat}
             </button>
           ))}
+          {extraCats.length > 0 && (
+            <button
+              type="button"
+              className={`filter-pill filter-pill--more${filterExpanded ? " filter-pill--active" : ""}`}
+              onClick={() => setFilterExpanded((p) => !p)}
+            >
+              +{extraCats.length} more
+            </button>
+          )}
         </div>
       )}
 
-      {/* Hover card (follows mouse near star) */}
-      {hoveredBuilding && hoverPos && (
-        <div
-          className="star-hover-card"
-          style={{
-            left: hoverPos.x + 16,
-            top: hoverPos.y - 20,
-          }}
-        >
-          <div className="star-hover-name">{hoveredBuilding.name}</div>
-          <div className="star-hover-meta">
-            {hoveredBuilding.happeningNowCount > 0 && (
-              <span className="star-hover-live">{hoveredBuilding.happeningNowCount} live</span>
-            )}
-            <span>{hoveredBuilding.eventCount} events</span>
-            {hoveredBuilding.cleCount > 0 && (
-              <span className="star-hover-cle">CLE {hoveredBuilding.cleCount}</span>
-            )}
-          </div>
+      {/* Expanded categories popup */}
+      {filterExpanded && extraCats.length > 0 && (
+        <div className="filter-expanded">
+          {extraCats.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              className={`filter-pill${activeCategory === cat ? " filter-pill--active" : ""}`}
+              onClick={() => { handleCategoryToggle(cat); setFilterExpanded(false); }}
+            >
+              <span className="filter-pill-icon">{getCategoryIcon(cat)}</span>
+              {cat}
+            </button>
+          ))}
         </div>
       )}
 
