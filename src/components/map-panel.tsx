@@ -44,32 +44,16 @@ type GeoJSONCollection = {
 
 const UNC_CENTER: [number, number] = [35.9108, -79.0472];
 
-// Much larger star sizes for visibility
-const STAR_RADIUS: Record<HeatLevel, number> = {
-  0: 0,
-  1: 6,
-  2: 9,
-  3: 12,
-  4: 16,
+const HEAT_STYLES: Record<HeatLevel, { fill: string; fillOp: number; stroke: string; weight: number }> = {
+  0: { fill: "#adb5bd", fillOp: 0.18, stroke: "#868e96", weight: 0.8 },
+  1: { fill: "#40c057", fillOp: 0.35, stroke: "#2f9e44", weight: 1.2 },
+  2: { fill: "#fab005", fillOp: 0.42, stroke: "#e67700", weight: 1.3 },
+  3: { fill: "#fd7e14", fillOp: 0.48, stroke: "#d9480f", weight: 1.5 },
+  4: { fill: "#fa5252", fillOp: 0.58, stroke: "#e03131", weight: 1.8 },
 };
 
-// Vivid star colors with strong glows
-const STAR_COLORS: Record<HeatLevel, { fill: string; glow: string; outer: string; glowSize: number }> = {
-  0: { fill: "#3a3f50", glow: "rgba(58,63,80,0)", outer: "rgba(58,63,80,0)", glowSize: 0 },
-  1: { fill: "#d4d4cc", glow: "rgba(212,212,204,0.5)", outer: "rgba(212,212,204,0.15)", glowSize: 18 },
-  2: { fill: "#ffd666", glow: "rgba(255,214,102,0.65)", outer: "rgba(255,214,102,0.2)", glowSize: 26 },
-  3: { fill: "#ff9f43", glow: "rgba(255,159,67,0.7)", outer: "rgba(255,159,67,0.25)", glowSize: 34 },
-  4: { fill: "#ff6b6b", glow: "rgba(255,107,107,0.8)", outer: "rgba(255,107,107,0.3)", glowSize: 44 },
-};
-
-const CLE_COLOR = "#4dabf7";
-
-// Ghost building styles — slightly more visible
-const GHOST_STYLE = { fill: "#ffffff", fillOp: 0.04, stroke: "rgba(255,255,255,0.08)", weight: 0.6 };
-const GHOST_ACTIVE_STYLE = { fill: "#ffffff", fillOp: 0.08, stroke: "rgba(255,255,255,0.18)", weight: 1 };
-
-// Constellation link distance
-const CONSTELLATION_LINK_DIST = 400;
+const BG_STYLE = { fill: "#ced4da", fillOp: 0.08, stroke: "#adb5bd", weight: 0.4 };
+const SELECTED_STYLE = { fill: "#4263eb", fillOp: 0.65, stroke: "transparent", weight: 0 };
 
 /* ─── Category icon mapping ─── */
 
@@ -100,82 +84,20 @@ function distM(lat1: number, lng1: number, lat2: number, lng2: number): number {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/* ─── Star Field Canvas (ambient background particles) ─── */
-
-function StarFieldCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animId: number;
-    const stars: { x: number; y: number; r: number; speed: number; phase: number; brightness: number }[] = [];
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    // Generate ambient stars
-    for (let i = 0; i < 180; i++) {
-      stars.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: Math.random() * 1.2 + 0.3,
-        speed: Math.random() * 0.4 + 0.1,
-        phase: Math.random() * Math.PI * 2,
-        brightness: Math.random() * 0.4 + 0.1,
-      });
-    }
-
-    const draw = (t: number) => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      for (const s of stars) {
-        const twinkle = Math.sin(t * 0.001 * s.speed + s.phase) * 0.5 + 0.5;
-        const alpha = s.brightness * (0.4 + twinkle * 0.6);
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200, 210, 230, ${alpha})`;
-        ctx.fill();
-
-        // Subtle glow for brighter stars
-        if (s.r > 0.8) {
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.r * 3, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(180, 200, 240, ${alpha * 0.08})`;
-          ctx.fill();
-        }
-      }
-
-      animId = requestAnimationFrame(draw);
-    };
-
-    animId = requestAnimationFrame(draw);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 0,
-        pointerEvents: "none",
-        opacity: 0.7,
-      }}
-    />
-  );
+function heatTooltip(b: BuildingSummary): string {
+  const lines: string[] = [b.name];
+  if (b.happeningNowCount > 0) {
+    lines.push(`<span class="tooltip-heat">${b.happeningNowCount} happening now</span>`);
+  } else if (b.nextEventStartsAt) {
+    const dist = formatDistanceToNow(new Date(b.nextEventStartsAt), { addSuffix: false });
+    lines.push(`<span class="tooltip-heat">Next in ${dist}</span>`);
+  } else if (b.eventCount > 0) {
+    lines.push(`<span class="tooltip-heat">${b.eventCount} upcoming</span>`);
+  }
+  if (b.cleCount > 0) {
+    lines.push(`<span class="tooltip-cle">CLE ${b.cleCount}</span>`);
+  }
+  return lines.join("<br>");
 }
 
 /* ─── Component ─── */
@@ -188,6 +110,7 @@ type MapPanelProps = {
 export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
   const mapRef = useRef<unknown>(null);
   const mapNodeRef = useRef<HTMLDivElement | null>(null);
+  const selectedRef = useRef<{ layer: unknown; building: BuildingSummary | null }>({ layer: null, building: null });
   const abortRef = useRef<AbortController | null>(null);
 
   const [state, setState] = useState<PanelState>({
@@ -198,15 +121,8 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
   });
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [filterExpanded, setFilterExpanded] = useState(false);
 
-  // Force dark theme on mount for constellation mode
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", "dark");
-    localStorage.setItem("signalmap-theme", "dark");
-  }, []);
-
-  // Filtered events
+  // When a category is active, filter events in the bottom panel
   const filteredNow = useMemo(() => {
     if (!activeCategory) return state.now;
     return state.now.filter((e) => e.category === activeCategory);
@@ -218,7 +134,10 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
   }, [state.upcoming, activeCategory]);
 
   const selectBuilding = useCallback(async (building: BuildingSummary, category?: string | null) => {
-    if (abortRef.current) abortRef.current.abort();
+    // Cancel any in-flight request to prevent race conditions
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -231,10 +150,14 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
       from: from.toISOString(),
       to: to.toISOString(),
     });
-    if (category) query.set("category", category);
+    if (category) {
+      query.set("category", category);
+    }
 
     try {
-      const response = await fetch(`/api/events?${query.toString()}`, { signal: controller.signal });
+      const response = await fetch(`/api/events?${query.toString()}`, {
+        signal: controller.signal,
+      });
       if (!response.ok) {
         setState({ building, now: [], upcoming: [], loading: false });
         return;
@@ -257,14 +180,17 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
 
       setState({ building, now, upcoming, loading: false });
     } catch (err) {
+      // Ignore aborted requests — a newer request has taken over
       if (err instanceof DOMException && err.name === "AbortError") return;
       setState({ building, now: [], upcoming: [], loading: false });
     }
   }, []);
 
-  // Re-fetch when category changes
+  // Re-fetch events when category filter changes and a building is selected
   useEffect(() => {
-    if (state.building) void selectBuilding(state.building, activeCategory);
+    if (state.building) {
+      void selectBuilding(state.building, activeCategory);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCategory]);
 
@@ -272,22 +198,39 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
     setActiveCategory((prev) => (prev === cat ? null : cat));
   }, []);
 
+  const resetSelectedStyle = useCallback(() => {
+    if (selectedRef.current.layer && selectedRef.current.building) {
+      const prev = selectedRef.current.layer as { setStyle: (s: Record<string, unknown>) => void; _path?: SVGPathElement };
+      const hl = selectedRef.current.building.heatLevel;
+      const s = HEAT_STYLES[hl as HeatLevel];
+      prev.setStyle({ fillColor: s.fill, fillOpacity: s.fillOp, color: s.stroke, weight: s.weight });
+      if (prev._path) {
+        prev._path.classList.remove("building-selected-3d");
+        if (hl > 0) prev._path.classList.add(`building-heat-${hl}`);
+      }
+    }
+  }, []);
+
   const closeOverlay = useCallback(() => {
+    resetSelectedStyle();
+    selectedRef.current = { layer: null, building: null };
     setState({ building: null, now: [], upcoming: [], loading: false });
     if (mapRef.current) {
       (mapRef.current as { flyTo: (c: [number, number], z: number, o: Record<string, number>) => void })
         .flyTo(UNC_CENTER, 16, { duration: 0.6 });
     }
-  }, []);
+  }, [resetSelectedStyle]);
 
   const handleSearchSelect = useCallback((building: BuildingSummary) => {
+    resetSelectedStyle();
+    selectedRef.current = { layer: null, building: building };
     if (mapRef.current) {
       const offsetLat = building.lat - 0.0012;
       (mapRef.current as { flyTo: (c: { lat: number; lng: number }, z: number, o: Record<string, number>) => void })
         .flyTo({ lat: offsetLat, lng: building.lng }, 18, { duration: 0.8 });
     }
     void selectBuilding(building, activeCategory);
-  }, [selectBuilding, activeCategory]);
+  }, [selectBuilding, resetSelectedStyle, activeCategory]);
 
   // Keyboard: Escape to close
   useEffect(() => {
@@ -298,10 +241,12 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [state.building, closeOverlay]);
 
-  // ── Initialize map with constellation overlay ──
+  // Initialize map
   useEffect(() => {
     if (!mapNodeRef.current || mapRef.current) return;
     let cancelled = false;
+    // Track the map instance locally so cleanup can always reach it,
+    // even if the Promise resolves after the component unmounts.
     let localMap: { remove: () => void } | null = null;
 
     import("leaflet").then(async (L) => {
@@ -315,15 +260,13 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
 
       L.control.zoom({ position: "bottomright" }).addTo(map);
 
-      // Dark tile layer — using dark_nolabels for cleaner look
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
         maxZoom: 19,
       }).addTo(map);
 
       // Build building index
       const buildingIndex = new Map<number, BuildingSummary>();
-      const activeBuildings: BuildingSummary[] = [];
 
       let geojson: GeoJSONCollection | null = null;
       try {
@@ -337,6 +280,7 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
       }
 
       // Match DB buildings to OSM polygons
+      // Pass 1: match by name (OSM name matches any DB building alias)
       const matchedBuildingIds = new Set<string>();
       for (let i = 0; i < geojson.features.length; i++) {
         const osmName = geojson.features[i].properties.n;
@@ -379,213 +323,148 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
         }
       }
 
-      // ── Layer 1: Ghost building polygons ──
       L.geoJSON(geojson as GeoJSON.GeoJsonObject, {
         style: (feature) => {
           if (!feature) return {};
           const idx = geojson!.features.indexOf(feature as GeoJSONFeature);
           const matched = buildingIndex.get(idx);
 
-          if (matched && matched.heatLevel > 0) {
+          if (matched) {
+            const s = HEAT_STYLES[matched.heatLevel as HeatLevel];
+            const classes = ["building-poly"];
+            if (matched.heatLevel > 0) classes.push(`building-heat-${matched.heatLevel}`);
+            if (matched.cleCount > 0) classes.push("building-cle");
             return {
-              fillColor: GHOST_ACTIVE_STYLE.fill,
-              fillOpacity: GHOST_ACTIVE_STYLE.fillOp,
-              color: GHOST_ACTIVE_STYLE.stroke,
-              weight: GHOST_ACTIVE_STYLE.weight,
-              className: "ghost-poly ghost-active",
+              fillColor: s.fill,
+              fillOpacity: s.fillOp,
+              color: s.stroke,
+              weight: s.weight,
+              className: classes.join(" "),
             };
           }
 
           return {
-            fillColor: GHOST_STYLE.fill,
-            fillOpacity: GHOST_STYLE.fillOp,
-            color: GHOST_STYLE.stroke,
-            weight: GHOST_STYLE.weight,
-            className: "ghost-poly",
+            fillColor: BG_STYLE.fill,
+            fillOpacity: BG_STYLE.fillOp,
+            color: BG_STYLE.stroke,
+            weight: BG_STYLE.weight,
+            className: "building-poly-bg",
           };
         },
-        onEachFeature: (_feature, layer) => {
-          (layer as L.Path).options.interactive = false;
+
+        onEachFeature: (feature, layer) => {
+          const idx = geojson!.features.indexOf(feature as GeoJSONFeature);
+          const matched = buildingIndex.get(idx);
+          const osmName = (feature as GeoJSONFeature).properties.n;
+          const path = layer as unknown as { _path?: SVGPathElement; setStyle: (s: Record<string, unknown>) => void };
+
+          // Tooltip for all buildings
+          if (matched) {
+            layer.bindTooltip(heatTooltip(matched), {
+              direction: "top",
+              offset: [0, -4],
+              className: "building-tooltip",
+            });
+          } else if (osmName) {
+            layer.bindTooltip(osmName, {
+              direction: "top",
+              offset: [0, -4],
+              className: "building-tooltip",
+            });
+          }
+
+          // Hover for all buildings
+          layer.on("mouseover", () => {
+            if (selectedRef.current.layer === layer) return;
+            if (matched) {
+              const s = HEAT_STYLES[matched.heatLevel as HeatLevel];
+              (layer as L.Path).setStyle({
+                fillOpacity: Math.min(s.fillOp + 0.15, 0.85),
+                weight: s.weight + 0.8,
+              });
+              if (path._path) {
+                path._path.style.filter = `drop-shadow(0 0 6px ${s.stroke})`;
+              }
+            } else {
+              (layer as L.Path).setStyle({
+                fillOpacity: 0.25,
+                weight: 0.8,
+                fillColor: "#d4c9a8",
+              });
+              if (path._path) {
+                path._path.style.filter = "drop-shadow(0 0 3px rgba(212,201,168,0.5))";
+              }
+            }
+          });
+
+          layer.on("mouseout", () => {
+            if (selectedRef.current.layer === layer) return;
+            if (matched) {
+              const s = HEAT_STYLES[matched.heatLevel as HeatLevel];
+              (layer as L.Path).setStyle({
+                fillOpacity: s.fillOp,
+                weight: s.weight,
+              });
+            } else {
+              (layer as L.Path).setStyle({
+                fillOpacity: BG_STYLE.fillOp,
+                weight: BG_STYLE.weight,
+                fillColor: BG_STYLE.fill,
+              });
+            }
+            if (path._path) path._path.style.filter = "";
+          });
+
+          // Click for matched buildings
+          if (matched) {
+            layer.on("click", (e: L.LeafletEvent) => {
+              // Stop propagation so map's click handler doesn't fire closeOverlay
+              L.DomEvent.stopPropagation(e as unknown as Event);
+
+              // If clicking already selected, zoom back out
+              if (selectedRef.current.building?.id === matched.id) {
+                closeOverlay();
+                return;
+              }
+
+              // Deselect previous
+              resetSelectedStyle();
+
+              // Select new
+              (layer as L.Path).setStyle({
+                fillColor: SELECTED_STYLE.fill,
+                fillOpacity: SELECTED_STYLE.fillOp,
+                color: SELECTED_STYLE.stroke,
+                weight: SELECTED_STYLE.weight,
+              });
+
+              selectedRef.current = { layer, building: matched };
+
+              // FlyTo with offset: shift target south so building appears
+              // in the upper third of the viewport (above the bottom panel)
+              const offsetLat = matched.lat - 0.0012;
+              const flyTarget = L.latLng(offsetLat, matched.lng);
+              map.flyTo(flyTarget, 18, { duration: 0.8 });
+
+              // Apply 3D effect after flight
+              map.once("moveend", () => {
+                if (path._path) {
+                  path._path.classList.remove(`building-heat-${matched.heatLevel}`);
+                  path._path.classList.add("building-selected-3d");
+                }
+              });
+
+              void selectBuilding(matched);
+            });
+          }
         },
       }).addTo(map);
 
-      // ── Collect active buildings ──
-      for (const building of initialBuildings) {
-        if (building.heatLevel > 0) {
-          activeBuildings.push(building);
-        }
-      }
-
-      // ── Layer 2: Constellation lines (bright, animated, visible!) ──
-      const drawnPairs = new Set<string>();
-      for (let i = 0; i < activeBuildings.length; i++) {
-        for (let j = i + 1; j < activeBuildings.length; j++) {
-          const a = activeBuildings[i];
-          const b = activeBuildings[j];
-          const d = distM(a.lat, a.lng, b.lat, b.lng);
-          if (d < CONSTELLATION_LINK_DIST) {
-            const pairKey = [a.id, b.id].sort().join("-");
-            if (drawnPairs.has(pairKey)) continue;
-            drawnPairs.add(pairKey);
-
-            const heatSum = a.heatLevel + b.heatLevel;
-            const opacity = Math.min(0.2 + heatSum * 0.08, 0.65);
-            const weight = Math.min(0.8 + heatSum * 0.2, 2.0);
-
-            // Glow line (thicker, more transparent)
-            L.polyline(
-              [[a.lat, a.lng], [b.lat, b.lng]],
-              {
-                color: "#7c8cf5",
-                weight: weight + 4,
-                opacity: opacity * 0.2,
-                className: "constellation-glow",
-                interactive: false,
-              }
-            ).addTo(map);
-
-            // Core line
-            L.polyline(
-              [[a.lat, a.lng], [b.lat, b.lng]],
-              {
-                color: "rgba(180, 195, 255, 0.9)",
-                weight,
-                opacity,
-                dashArray: "6 4",
-                className: "constellation-line",
-                interactive: false,
-              }
-            ).addTo(map);
-          }
-        }
-      }
-
-      // ── Layer 3: Star markers (multi-layer glow system) ──
-      for (const building of activeBuildings) {
-        const hl = building.heatLevel as HeatLevel;
-        const star = STAR_COLORS[hl];
-        const radius = STAR_RADIUS[hl];
-        const isCLE = building.cleCount > 0;
-
-        // Layer A: Wide outer glow (nebula effect)
-        if (star.glowSize > 0) {
-          L.circleMarker([building.lat, building.lng], {
-            radius: star.glowSize,
-            fillColor: isCLE ? CLE_COLOR : star.fill,
-            fillOpacity: 0.12,
-            color: "transparent",
-            weight: 0,
-            className: `star-nebula star-nebula-${hl}`,
-            interactive: false,
-          }).addTo(map);
-        }
-
-        // Layer B: Middle glow ring
-        if (star.glowSize > 0) {
-          L.circleMarker([building.lat, building.lng], {
-            radius: radius + 8,
-            fillColor: isCLE ? CLE_COLOR : star.fill,
-            fillOpacity: 0.2,
-            color: isCLE ? CLE_COLOR : star.glow,
-            weight: 1.5,
-            opacity: 0.3,
-            className: `star-glow star-glow-${hl}${isCLE ? " star-cle-glow" : ""}`,
-            interactive: false,
-          }).addTo(map);
-        }
-
-        // Layer C: CLE orbit ring
-        if (isCLE) {
-          L.circleMarker([building.lat, building.lng], {
-            radius: radius + 14,
-            fillColor: "transparent",
-            fillOpacity: 0,
-            color: CLE_COLOR,
-            weight: 1.5,
-            opacity: 0.6,
-            dashArray: "4 4",
-            className: "star-cle-ring",
-            interactive: false,
-          }).addTo(map);
-        }
-
-        // Layer D: Core star (bright, solid)
-        const starMarker = L.circleMarker([building.lat, building.lng], {
-          radius,
-          fillColor: star.fill,
-          fillOpacity: 1,
-          color: "#ffffff",
-          weight: 1.5,
-          opacity: 0.8,
-          className: `star-core star-core-${hl}${isCLE ? " star-cle" : ""}`,
-        });
-
-        // Tooltip
-        const tooltipLines: string[] = [
-          `<span class="star-tooltip-name">${building.name}</span>`,
-        ];
-        if (building.happeningNowCount > 0) {
-          tooltipLines.push(`<span class="star-tooltip-live">\u2022 ${building.happeningNowCount} happening now</span>`);
-        } else if (building.nextEventStartsAt) {
-          const dist = formatDistanceToNow(new Date(building.nextEventStartsAt), { addSuffix: false });
-          tooltipLines.push(`<span class="star-tooltip-time">Next in ${dist}</span>`);
-        }
-        if (building.eventCount > 0) {
-          tooltipLines.push(`<span class="star-tooltip-count">${building.eventCount} events</span>`);
-        }
-        if (isCLE) {
-          tooltipLines.push(`<span class="star-tooltip-cle">\u2726 CLE ${building.cleCount}</span>`);
-        }
-
-        starMarker.bindTooltip(tooltipLines.join("<br>"), {
-          direction: "top",
-          offset: [0, -radius - 6],
-          className: "star-tooltip",
-        });
-
-        // Click → select building
-        starMarker.on("click", (e: L.LeafletEvent) => {
-          L.DomEvent.stopPropagation(e as unknown as Event);
-          const offsetLat = building.lat - 0.0012;
-          map.flyTo(L.latLng(offsetLat, building.lng), 18, { duration: 0.8 });
-          setState((prev) => ({ ...prev, building, loading: true }));
-
-          const from = new Date();
-          const to = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-          const query = new URLSearchParams({
-            buildingId: building.id,
-            from: from.toISOString(),
-            to: to.toISOString(),
-          });
-
-          fetch(`/api/events?${query.toString()}`)
-            .then((res) => res.json())
-            .then((payload: EventResponse) => {
-              const nowTime = new Date();
-              const now: EventItem[] = [];
-              const upcoming: EventItem[] = [];
-              for (const event of payload.items) {
-                const start = new Date(event.startTime);
-                const end = event.endTime ? new Date(event.endTime) : null;
-                if (start <= nowTime && (!end || end >= nowTime)) {
-                  now.push(event);
-                } else if (start > nowTime) {
-                  upcoming.push(event);
-                }
-              }
-              setState({ building, now, upcoming, loading: false });
-            })
-            .catch(() => {
-              setState({ building, now: [], upcoming: [], loading: false });
-            });
-        });
-
-        starMarker.addTo(map);
-      }
-
-      // Click map to close
+      // Click on map (not on building) to close
       map.on("click", () => {
-        setState({ building: null, now: [], upcoming: [], loading: false });
+        if (selectedRef.current.building) {
+          closeOverlay();
+        }
       });
 
       localMap = map;
@@ -594,30 +473,24 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
 
     return () => {
       cancelled = true;
+      // Use localMap as fallback — if the promise resolved but mapRef
+      // wasn't set yet (unlikely but possible), we still clean up.
       const mapToRemove = mapRef.current ?? localMap;
       if (mapToRemove) {
         (mapToRemove as { remove: () => void }).remove();
         mapRef.current = null;
         localMap = null;
       }
-      if (abortRef.current) abortRef.current.abort();
+      // Cancel any pending fetch
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
     };
   }, [initialBuildings, selectBuilding, closeOverlay]);
 
-  // Count visible categories for compact display
-  const visibleCatCount = 5;
-  const mainCats = categories.slice(0, visibleCatCount);
-  const extraCats = categories.slice(visibleCatCount);
-
   return (
     <>
-      {/* Ambient star field canvas */}
-      <StarFieldCanvas />
-
-      <div ref={mapNodeRef} style={{ position: "absolute", inset: 0, zIndex: 1 }} />
-
-      {/* Vignette overlay for depth */}
-      <div className="vignette-overlay" />
+      <div ref={mapNodeRef} style={{ position: "absolute", inset: 0 }} />
 
       {/* Theme toggle */}
       <ThemeToggle />
@@ -625,75 +498,22 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
       {/* Search */}
       <SearchPanel buildings={initialBuildings} onSelect={handleSearchSelect} />
 
-      {/* Star guide legend — top-left, compact */}
-      <div className="star-guide">
-        <div className="star-guide-title">Star Guide</div>
-        <div className="star-guide-items">
-          <div className="star-guide-item">
-            <span className="star-guide-dot star-guide-4" />
-            <span>Happening Now</span>
-          </div>
-          <div className="star-guide-item">
-            <span className="star-guide-dot star-guide-3" />
-            <span>Within 3h</span>
-          </div>
-          <div className="star-guide-item">
-            <span className="star-guide-dot star-guide-2" />
-            <span>Within 6h</span>
-          </div>
-          <div className="star-guide-item">
-            <span className="star-guide-dot star-guide-1" />
-            <span>Later Today</span>
-          </div>
-          <div className="star-guide-item">
-            <span className="star-guide-dot star-guide-cle" />
-            <span>CLE Credit</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Category filter — compact bottom pill with overflow menu */}
+      {/* Category filter bar */}
       {categories.length > 0 && (
         <div className="filter-bar">
           <button
             type="button"
             className={`filter-pill${activeCategory === null ? " filter-pill--active" : ""}`}
-            onClick={() => { setActiveCategory(null); setFilterExpanded(false); }}
+            onClick={() => setActiveCategory(null)}
           >
             All
           </button>
-          {mainCats.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
               type="button"
               className={`filter-pill${activeCategory === cat ? " filter-pill--active" : ""}`}
               onClick={() => handleCategoryToggle(cat)}
-            >
-              <span className="filter-pill-icon">{getCategoryIcon(cat)}</span>
-              {cat.length > 16 ? cat.slice(0, 14) + "\u2026" : cat}
-            </button>
-          ))}
-          {extraCats.length > 0 && (
-            <button
-              type="button"
-              className={`filter-pill filter-pill--more${filterExpanded ? " filter-pill--active" : ""}`}
-              onClick={() => setFilterExpanded((p) => !p)}
-            >
-              +{extraCats.length} more
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Expanded categories popup */}
-      {filterExpanded && extraCats.length > 0 && (
-        <div className="filter-expanded">
-          {extraCats.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              className={`filter-pill${activeCategory === cat ? " filter-pill--active" : ""}`}
-              onClick={() => { handleCategoryToggle(cat); setFilterExpanded(false); }}
             >
               <span className="filter-pill-icon">{getCategoryIcon(cat)}</span>
               {cat}
@@ -702,7 +522,35 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
         </div>
       )}
 
-      {/* Bottom overlay — event detail panel */}
+      {/* Legend */}
+      <div className="map-legend">
+        <div className="legend-item">
+          <span className="legend-swatch legend-heat-4" />
+          <span>Happening Now</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-swatch legend-heat-3" />
+          <span>Within 3h</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-swatch legend-heat-2" />
+          <span>Within 6h</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-swatch legend-heat-1" />
+          <span>Later Today</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-swatch legend-heat-0" />
+          <span>No Events</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-swatch legend-cle" />
+          <span>CLE Credit</span>
+        </div>
+      </div>
+
+      {/* Bottom overlay */}
       <div className="event-overlay-anchor">
         <div className={`event-overlay${state.building ? " open" : ""}`}>
           {state.building && (

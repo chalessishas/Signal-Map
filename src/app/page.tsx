@@ -10,6 +10,9 @@ export const revalidate = 60; // re-render from DB every 60s
 
 export default async function HomePage() {
   // If data is stale (>1h since last ingest), trigger background refresh.
+  // The DB-level staleness check in isDataStale() naturally prevents
+  // redundant ingests — once a run updates lastSuccessAt, subsequent
+  // checks will return false until the next stale window.
   let stale = false;
   try {
     stale = await isDataStale();
@@ -18,6 +21,7 @@ export default async function HomePage() {
   }
 
   if (stale) {
+    // Fire-and-forget with a 55s timeout to prevent runaway ingests
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("Ingest timeout (55s)")), 55_000)
     );
@@ -49,6 +53,7 @@ export default async function HomePage() {
   const buildings = rows.map((b) => {
     const heat = heatMap.get(b.id);
 
+    // Safely parse aliases — column stores JSON string, but guard against malformed data
     let aliases: string[] = [];
     try {
       const parsed = JSON.parse(b.aliases);
@@ -84,19 +89,29 @@ export default async function HomePage() {
   const activeBuildings = buildings.filter((b) => b.heatLevel > 0).length;
 
   return (
-    <main className="constellation-shell">
-      {/* Compact brand watermark — bottom-left */}
-      <div className="brand-watermark">
-        <div className="brand-watermark-icon">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-          </svg>
+    <main className="main-shell">
+      <aside className="sidebar">
+        <div className="brand-row">
+          <div className="brand-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+          </div>
+          <h1>SignalMap</h1>
         </div>
-        <span className="brand-watermark-text">SignalMap</span>
-        <span className="brand-watermark-stats">{activeBuildings} active &middot; {totalEvents} events</span>
-      </div>
-
+        <p className="subtle">UNC Chapel Hill</p>
+        <div className="sidebar-stats">
+          <div className="sidebar-stat">
+            <strong>{activeBuildings}</strong>
+            <span>Active</span>
+          </div>
+          <div className="sidebar-stat">
+            <strong>{totalEvents}</strong>
+            <span>Events</span>
+          </div>
+        </div>
+      </aside>
       <section className="map-wrap">
         <ErrorBoundary>
           <MapPanel initialBuildings={buildings} categories={categories} />
