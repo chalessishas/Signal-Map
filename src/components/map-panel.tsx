@@ -344,12 +344,13 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
             };
           }
 
+          // Non-school buildings: hide completely
           return {
-            fillColor: BG_STYLE.fill,
-            fillOpacity: BG_STYLE.fillOp,
-            color: BG_STYLE.stroke,
-            weight: BG_STYLE.weight,
-            className: "building-poly-bg",
+            fillColor: "transparent",
+            fillOpacity: 0,
+            color: "transparent",
+            weight: 0,
+            interactive: false,
           };
         },
 
@@ -366,18 +367,12 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
               offset: [0, -4],
               className: "building-tooltip",
             });
-          } else if (osmName) {
-            layer.bindTooltip(osmName, {
-              direction: "top",
-              offset: [0, -4],
-              className: "building-tooltip",
-            });
           }
 
-          // Hover for all buildings
-          layer.on("mouseover", () => {
-            if (selectedRef.current.layer === layer) return;
-            if (matched) {
+          // Hover for matched buildings only
+          if (matched) {
+            layer.on("mouseover", () => {
+              if (selectedRef.current.layer === layer) return;
               const s = HEAT_STYLES[matched.heatLevel as HeatLevel];
               (layer as L.Path).setStyle({
                 fillOpacity: Math.min(s.fillOp + 0.15, 0.85),
@@ -386,35 +381,18 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
               if (path._path) {
                 path._path.style.filter = `drop-shadow(0 0 6px ${s.stroke})`;
               }
-            } else {
-              (layer as L.Path).setStyle({
-                fillOpacity: 0.25,
-                weight: 0.8,
-                fillColor: "#d4c9a8",
-              });
-              if (path._path) {
-                path._path.style.filter = "drop-shadow(0 0 3px rgba(212,201,168,0.5))";
-              }
-            }
-          });
+            });
 
-          layer.on("mouseout", () => {
-            if (selectedRef.current.layer === layer) return;
-            if (matched) {
+            layer.on("mouseout", () => {
+              if (selectedRef.current.layer === layer) return;
               const s = HEAT_STYLES[matched.heatLevel as HeatLevel];
               (layer as L.Path).setStyle({
                 fillOpacity: s.fillOp,
                 weight: s.weight,
               });
-            } else {
-              (layer as L.Path).setStyle({
-                fillOpacity: BG_STYLE.fillOp,
-                weight: BG_STYLE.weight,
-                fillColor: BG_STYLE.fill,
-              });
-            }
-            if (path._path) path._path.style.filter = "";
-          });
+              if (path._path) path._path.style.filter = "";
+            });
+          }
 
           // Click for matched buildings
           if (matched) {

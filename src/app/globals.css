@@ -93,21 +93,21 @@
   --accent-soft: rgba(92, 124, 250, 0.12);
   --accent-hover: #748ffc;
 
-  --heat-0: #6b7280;
+  --heat-0: #8b95a5;
   --heat-1: #51cf66;
   --heat-2: #fcc419;
   --heat-3: #ff922b;
   --heat-4: #ff6b6b;
-  --heat-0-fill: rgba(107, 114, 128, 0.28);
-  --heat-1-fill: rgba(81, 207, 102, 0.25);
-  --heat-2-fill: rgba(252, 196, 25, 0.30);
-  --heat-3-fill: rgba(255, 146, 43, 0.38);
-  --heat-4-fill: rgba(255, 107, 107, 0.48);
-  --heat-0-glow: rgba(107, 114, 128, 0);
-  --heat-1-glow: rgba(81, 207, 102, 0.25);
-  --heat-2-glow: rgba(252, 196, 25, 0.30);
-  --heat-3-glow: rgba(255, 146, 43, 0.40);
-  --heat-4-glow: rgba(255, 107, 107, 0.50);
+  --heat-0-fill: rgba(160, 175, 200, 0.35);
+  --heat-1-fill: rgba(81, 207, 102, 0.40);
+  --heat-2-fill: rgba(252, 196, 25, 0.45);
+  --heat-3-fill: rgba(255, 146, 43, 0.52);
+  --heat-4-fill: rgba(255, 107, 107, 0.60);
+  --heat-0-glow: rgba(160, 175, 200, 0.15);
+  --heat-1-glow: rgba(81, 207, 102, 0.45);
+  --heat-2-glow: rgba(252, 196, 25, 0.50);
+  --heat-3-glow: rgba(255, 146, 43, 0.60);
+  --heat-4-glow: rgba(255, 107, 107, 0.70);
 
   --cle: #4dabf7;
   --cle-soft: rgba(77, 171, 247, 0.12);
@@ -331,6 +331,45 @@ a {
 .building-heat-3 { animation: breathe-med 3.5s ease-in-out infinite; will-change: auto; }
 .building-heat-2 { animation: breathe-slow 5s ease-in-out infinite; will-change: auto; }
 .building-heat-1 { animation: breathe-faint 7s ease-in-out infinite; will-change: auto; }
+
+/* ── Dark mode: stronger city-light glow ── */
+[data-theme="dark"] .building-heat-4 {
+  animation: dk-breathe-fast 2.5s ease-in-out infinite;
+}
+[data-theme="dark"] .building-heat-3 {
+  animation: dk-breathe-med 3.5s ease-in-out infinite;
+}
+[data-theme="dark"] .building-heat-2 {
+  animation: dk-breathe-slow 5s ease-in-out infinite;
+}
+[data-theme="dark"] .building-heat-1 {
+  animation: dk-breathe-faint 7s ease-in-out infinite;
+}
+
+@keyframes dk-breathe-fast {
+  0%, 100% { filter: drop-shadow(0 0 6px var(--heat-4-glow)) drop-shadow(0 0 14px var(--heat-4-glow)); fill-opacity: 0.55; }
+  50% { filter: drop-shadow(0 0 16px var(--heat-4-glow)) drop-shadow(0 0 30px var(--heat-4-glow)); fill-opacity: 0.72; }
+}
+
+@keyframes dk-breathe-med {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--heat-3-glow)) drop-shadow(0 0 10px var(--heat-3-glow)); fill-opacity: 0.48; }
+  50% { filter: drop-shadow(0 0 12px var(--heat-3-glow)) drop-shadow(0 0 24px var(--heat-3-glow)); fill-opacity: 0.62; }
+}
+
+@keyframes dk-breathe-slow {
+  0%, 100% { filter: drop-shadow(0 0 3px var(--heat-2-glow)) drop-shadow(0 0 8px var(--heat-2-glow)); fill-opacity: 0.42; }
+  50% { filter: drop-shadow(0 0 10px var(--heat-2-glow)) drop-shadow(0 0 20px var(--heat-2-glow)); fill-opacity: 0.55; }
+}
+
+@keyframes dk-breathe-faint {
+  0%, 100% { filter: drop-shadow(0 0 2px var(--heat-1-glow)) drop-shadow(0 0 6px var(--heat-1-glow)); fill-opacity: 0.36; }
+  50% { filter: drop-shadow(0 0 7px var(--heat-1-glow)) drop-shadow(0 0 14px var(--heat-1-glow)); fill-opacity: 0.48; }
+}
+
+/* Heat-0 buildings: dim ambient glow in dark mode */
+[data-theme="dark"] .building-poly {
+  filter: drop-shadow(0 0 3px var(--heat-0-glow));
+}
 
 /* Remove browser focus outline on map building paths */
 .leaflet-interactive:focus {
