@@ -52,7 +52,7 @@ const HEAT_STYLES: Record<HeatLevel, { fill: string; fillOp: number; stroke: str
   4: { fill: "#fa5252", fillOp: 0.58, stroke: "#e03131", weight: 1.8 },
 };
 
-const BG_STYLE = { fill: "#ced4da", fillOp: 0.08, stroke: "#adb5bd", weight: 0.4 };
+const BG_STYLE = { fill: "#ced4da", fillOp: 0.18, stroke: "#adb5bd", weight: 0.6 };
 const SELECTED_STYLE = { fill: "#4263eb", fillOp: 0.65, stroke: "transparent", weight: 0 };
 
 /* ─── Category icon mapping ─── */
@@ -121,6 +121,7 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
   });
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
 
   // When a category is active, filter events in the bottom panel
   const filteredNow = useMemo(() => {
@@ -522,32 +523,47 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
         </div>
       )}
 
-      {/* Legend */}
-      <div className="map-legend">
-        <div className="legend-item">
-          <span className="legend-swatch legend-heat-4" />
-          <span>Happening Now</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-swatch legend-heat-3" />
-          <span>Within 3h</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-swatch legend-heat-2" />
-          <span>Within 6h</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-swatch legend-heat-1" />
-          <span>Later Today</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-swatch legend-heat-0" />
-          <span>No Events</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-swatch legend-cle" />
-          <span>CLE Credit</span>
-        </div>
+      {/* Legend — collapsible */}
+      <div className={`map-legend${legendOpen ? " map-legend--open" : ""}`}>
+        <button
+          type="button"
+          className="legend-toggle"
+          onClick={() => setLegendOpen((o) => !o)}
+          aria-label="Toggle legend"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+          </svg>
+          {!legendOpen && <span className="legend-toggle-label">Legend</span>}
+        </button>
+        {legendOpen && (
+          <div className="legend-items">
+            <div className="legend-item">
+              <span className="legend-swatch legend-heat-4" />
+              <span>Happening Now</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch legend-heat-3" />
+              <span>Within 3h</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch legend-heat-2" />
+              <span>Within 6h</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch legend-heat-1" />
+              <span>Later Today</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch legend-heat-0" />
+              <span>No Events</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch legend-cle" />
+              <span>CLE Credit</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom overlay */}

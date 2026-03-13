@@ -33,7 +33,7 @@
   --heat-2: #fab005;
   --heat-3: #fd7e14;
   --heat-4: #fa5252;
-  --heat-0-fill: rgba(173, 181, 189, 0.18);
+  --heat-0-fill: rgba(173, 181, 189, 0.30);
   --heat-1-fill: rgba(64, 192, 87, 0.32);
   --heat-2-fill: rgba(250, 176, 5, 0.38);
   --heat-3-fill: rgba(253, 126, 20, 0.45);
@@ -98,7 +98,7 @@
   --heat-2: #fcc419;
   --heat-3: #ff922b;
   --heat-4: #ff6b6b;
-  --heat-0-fill: rgba(107, 114, 128, 0.15);
+  --heat-0-fill: rgba(107, 114, 128, 0.28);
   --heat-1-fill: rgba(81, 207, 102, 0.25);
   --heat-2-fill: rgba(252, 196, 25, 0.30);
   --heat-3-fill: rgba(255, 146, 43, 0.38);
@@ -119,7 +119,7 @@
   --panel-border: rgba(255, 255, 255, 0.06);
   --panel-shadow: 0 4px 24px rgba(0, 0, 0, 0.30), 0 1px 2px rgba(0, 0, 0, 0.20);
 
-  --map-filter: saturate(0.85) brightness(0.65) contrast(1.1);
+  --map-filter: saturate(0.7) brightness(0.55) contrast(1.15) hue-rotate(-5deg);
 }
 
 /* ═══ Reset ═══ */
@@ -703,15 +703,40 @@ a {
   -webkit-backdrop-filter: var(--panel-blur);
   border-radius: var(--radius-sm);
   border: 1px solid var(--panel-border);
-  padding: 8px 12px;
   box-shadow: var(--panel-shadow);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   font-size: 10px;
   font-weight: 500;
   color: var(--text-secondary);
   transition: background 0.3s, border-color 0.3s;
+  overflow: hidden;
+}
+
+.legend-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  transition: color 0.15s;
+  width: 100%;
+}
+
+.legend-toggle:hover { color: var(--text-primary); }
+
+.legend-toggle-label { white-space: nowrap; }
+
+.legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 10px 8px;
 }
 
 .legend-item {
@@ -879,8 +904,8 @@ a {
 .filter-bar {
   position: absolute;
   top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 252px;
+  right: 120px;
   z-index: 1000;
   display: flex;
   gap: 4px;
@@ -891,10 +916,11 @@ a {
   border-radius: 999px;
   border: 1px solid var(--panel-border);
   box-shadow: var(--panel-shadow);
-  max-width: calc(100vw - 340px);
   overflow-x: auto;
   scrollbar-width: none;
   transition: background 0.3s, border-color 0.3s;
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
 }
 
 .filter-bar::-webkit-scrollbar {
@@ -1025,8 +1051,6 @@ a {
     bottom: 10px;
     left: 8px;
     right: 8px;
-    transform: none;
-    max-width: calc(100vw - 16px);
     border-radius: 14px;
   }
 
