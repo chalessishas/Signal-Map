@@ -243,6 +243,17 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [state.building, closeOverlay]);
 
+  // Listen for sidebar building selection via CustomEvent
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { buildingId } = (e as CustomEvent<{ buildingId: string }>).detail;
+      const building = initialBuildings.find((b) => b.id === buildingId);
+      if (building) handleSearchSelect(building);
+    };
+    window.addEventListener("signalmap:select-building", handler);
+    return () => window.removeEventListener("signalmap:select-building", handler);
+  }, [initialBuildings, handleSearchSelect]);
+
   // Initialize map
   useEffect(() => {
     if (!mapNodeRef.current || mapRef.current) return;
@@ -478,29 +489,7 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
       {/* Search */}
       <SearchPanel buildings={initialBuildings} onSelect={handleSearchSelect} />
 
-      {/* Category filter bar */}
-      {categories.length > 0 && (
-        <div className="filter-bar">
-          <button
-            type="button"
-            className={`filter-pill${activeCategory === null ? " filter-pill--active" : ""}`}
-            onClick={() => setActiveCategory(null)}
-          >
-            All
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              className={`filter-pill${activeCategory === cat ? " filter-pill--active" : ""}`}
-              onClick={() => handleCategoryToggle(cat)}
-            >
-              <span className="filter-pill-icon">{getCategoryIcon(cat)}</span>
-              {cat}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Category filter moved to event-sidebar */}
 
       {/* Legend — collapsible */}
       <div className={`map-legend${legendOpen ? " map-legend--open" : ""}`}>

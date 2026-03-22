@@ -3,6 +3,8 @@ import { computeBuildingHeatLevels } from "@/lib/events";
 import { isDataStale } from "@/lib/ingest/freshness";
 import { ingestAllSources } from "@/lib/ingest/service";
 import { MapPanel } from "@/components/map-panel";
+import { EventSidebar } from "@/components/event-sidebar";
+import type { HeatLevel } from "@/lib/types";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { getCurrentPeriod } from "@/lib/radio";
 import { AmbienceEngine } from "@/components/ambience-engine";
@@ -69,7 +71,7 @@ export default async function HomePage() {
       campus: b.campus as "NORTH" | "SOUTH" | "OTHER",
       aliases,
       eventCount: heat?.eventCount ?? 0,
-      heatLevel: heat?.heatLevel ?? 0 as const,
+      heatLevel: (heat?.heatLevel ?? 0) as HeatLevel,
       happeningNowCount: heat?.happeningNowCount ?? 0,
       nextEventStartsAt: heat?.nextEventStartsAt?.toISOString() ?? null,
       cleCount: heat?.cleCount ?? 0,
@@ -95,28 +97,12 @@ export default async function HomePage() {
   return (
     <main className="main-shell">
       <AmbienceEngine initialPeriod={initialPeriod} />
-      <aside className="sidebar">
-        <div className="brand-row">
-          <div className="brand-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-            </svg>
-          </div>
-          <h1>SignalMap</h1>
-        </div>
-        <p className="subtle">UNC Chapel Hill</p>
-        <div className="sidebar-stats">
-          <div className="sidebar-stat">
-            <strong>{activeBuildings}</strong>
-            <span>Active</span>
-          </div>
-          <div className="sidebar-stat">
-            <strong>{totalEvents}</strong>
-            <span>Events</span>
-          </div>
-        </div>
-      </aside>
+      <EventSidebar
+        buildings={buildings}
+        categories={categories}
+        activeBuildings={activeBuildings}
+        totalEvents={totalEvents}
+      />
       <section className="map-wrap">
         <ErrorBoundary>
           <MapPanel initialBuildings={buildings} categories={categories} />
