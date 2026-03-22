@@ -5,7 +5,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model Building {
@@ -19,7 +18,9 @@ model Building {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  events Event[]
+  events     Event[]
+  userEvents UserEvent[]
+  comments   Comment[]
 }
 
 model Event {
@@ -40,6 +41,7 @@ model Event {
   updatedAt    DateTime @updatedAt
 
   building Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  comments Comment[]
 
   @@index([buildingId])
   @@index([startTime])
@@ -70,4 +72,60 @@ model IngestLog {
   rawError     String?
 
   source EventSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model UserProfile {
+  id        String   @id // matches Supabase auth.users.id
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  submissions UserEvent[]
+  comments    Comment[]
+}
+
+model UserEvent {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?
+  startTime    DateTime
+  endTime      DateTime?
+  buildingId   String?
+  locationText String?
+  category     String?
+  status       String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  authorId     String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  author   UserProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  building Building?   @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+
+  @@index([authorId])
+  @@index([buildingId])
+  @@index([status])
+  @@index([startTime])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  content    String
+  authorId   String
+  eventId    String?
+  buildingId String?
+  parentId   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  author   UserProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  event    Event?      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  building Building?   @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  parent   Comment?    @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[]   @relation("CommentReplies")
+
+  @@index([eventId])
+  @@index([buildingId])
+  @@index([authorId])
 }
