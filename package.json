@@ -11,7 +11,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "ingest": "tsx scripts/run-ingest.ts"
+    "ingest": "tsx scripts/run-ingest.ts",
+    "build:radio": "tsx scripts/build-radio-manifest.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
