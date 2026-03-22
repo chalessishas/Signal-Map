@@ -6,6 +6,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import type { BuildingSummary, HeatLevel } from "@/lib/types";
 import { SearchPanel } from "@/components/search-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { RadioPlayer } from "@/components/radio-player";
 
 /* ─── Types ─── */
 
@@ -640,6 +641,7 @@ export function MapPanel({ initialBuildings, categories }: MapPanelProps) {
           )}
         </div>
       </div>
+      <RadioPlayer />
     </>
   );
 }

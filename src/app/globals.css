@@ -1120,3 +1120,150 @@ a {
     right: 12px;
   }
 }
+
+/* ═══ Radio Player ═══ */
+
+.radio-player {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  background: var(--panel-bg);
+  backdrop-filter: var(--panel-blur);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+  overflow: hidden;
+  min-width: 200px;
+  max-width: 320px;
+  transition: all 0.3s ease;
+}
+
+.radio-player-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.radio-period-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.radio-play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-inverse);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.radio-play-btn:hover {
+  background: var(--accent-hover);
+}
+
+.radio-track-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.radio-track-name {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radio-announcement {
+  display: block;
+  font-size: 12px;
+  color: var(--accent);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radio-player-detail {
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.radio-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-tertiary);
+}
+
+.radio-volume-slider {
+  flex: 1;
+  height: 4px;
+  appearance: none;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.radio-volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.radio-period-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* Mobile: compact circular button */
+@media (max-width: 768px) {
+  .radio-player {
+    bottom: 16px;
+    right: 16px;
+    min-width: unset;
+    max-width: unset;
+  }
+
+  .radio-player:not(.radio-player--expanded) {
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+  }
+
+  .radio-player:not(.radio-player--expanded) .radio-player-bar {
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .radio-player:not(.radio-player--expanded) .radio-track-info,
+  .radio-player:not(.radio-player--expanded) .radio-period-icon {
+    display: none;
+  }
+
+  .radio-player--expanded {
+    min-width: 260px;
+    border-radius: var(--radius);
+  }
+}
