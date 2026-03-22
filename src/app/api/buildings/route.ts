@@ -15,10 +15,16 @@ export async function GET() {
     orderBy: { name: "asc" }
   });
 
-  const buildings = rows.map((b) => ({
-    ...b,
-    aliases: JSON.parse(b.aliases) as string[]
-  }));
+  const buildings = rows.map((b) => {
+    let aliases: string[] = [];
+    try {
+      const parsed = JSON.parse(b.aliases);
+      if (Array.isArray(parsed)) aliases = parsed;
+    } catch {
+      // malformed JSON — fall back to empty array
+    }
+    return { ...b, aliases };
+  });
 
   return NextResponse.json({ items: buildings });
 }

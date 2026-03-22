@@ -26,10 +26,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  if (parsed.data.parentId) {
+    const parent = await prisma.comment.findUnique({
+      where: { id: parsed.data.parentId },
+      select: { eventId: true, buildingId: true },
+    });
+    if (!parent) {
+      return NextResponse.json({ error: "Parent comment not found" }, { status: 400 });
+    }
+    if (parent.eventId !== (parsed.data.eventId ?? null) || parent.buildingId !== (parsed.data.buildingId ?? null)) {
+      return NextResponse.json({ error: "Parent comment belongs to a different event/building" }, { status: 400 });
+    }
   }
 
   await prisma.userProfile.upsert({
@@ -37,7 +56,7 @@ export async function POST(request: NextRequest) {
     update: {},
     create: {
       id: user.id,
-      email: user.email!,
+      email: user.email ?? "",
       name: user.user_metadata?.name ?? null,
       avatarUrl: user.user_metadata?.avatar_url ?? null,
     },
@@ -74,6 +93,7 @@ export async function GET(request: NextRequest) {
       },
     },
     orderBy: { createdAt: "desc" },
+    take: 50,
   });
 
   return NextResponse.json({ comments });

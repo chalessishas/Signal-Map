@@ -10,7 +10,6 @@ import { getCurrentPeriod } from "@/lib/radio";
 import { AmbienceEngine } from "@/components/ambience-engine";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 60; // re-render from DB every 60s
 
 export default async function HomePage() {
   // If data is stale (>1h since last ingest), trigger background refresh.
