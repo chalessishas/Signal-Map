@@ -1,7 +1,7 @@
 // src/components/radio-player.tsx
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getCurrentPeriod,
   PERIOD_CONFIG,
@@ -28,6 +28,8 @@ export function RadioPlayer() {
   const queueRef = useRef<Track[]>([]);
   const queueIndexRef = useRef(0);
   const tracksSinceAnnounceRef = useRef(0);
+  const playNextRef = useRef<() => void>(() => {});
+  const playNextTrackRef = useRef<() => void>(() => {});
 
   // Ensure audio element exists
   useEffect(() => {
@@ -54,7 +56,7 @@ export function RadioPlayer() {
     return () => clearInterval(interval);
   }, [period]);
 
-  const fetchPlaylist = useCallback(async (p: Period) => {
+  async function fetchPlaylist(p: Period) {
     try {
       const res = await fetch(`/api/radio/playlist?period=${p}`);
       const data = await res.json();
@@ -63,61 +65,62 @@ export function RadioPlayer() {
     } catch {
       queueRef.current = [];
     }
-  }, []);
+  }
 
-  const playNext = useCallback(async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
+  // Keep refs in sync with current period so onended handlers never go stale
+  useEffect(() => {
+    playNextRef.current = async () => {
+      const audio = audioRef.current;
+      if (!audio) return;
 
-    const config = PERIOD_CONFIG[period];
+      const config = PERIOD_CONFIG[period];
 
-    // Check if we should play an announcement
-    if (tracksSinceAnnounceRef.current >= config.announcementInterval) {
-      tracksSinceAnnounceRef.current = 0;
-      try {
-        const res = await fetch(`/api/radio/announce?period=${period}`);
-        const data = await res.json();
-        if (data.audio) {
-          setAnnouncementText(data.text);
-          audio.src = `data:audio/mp3;base64,${data.audio}`;
-          audio.onended = () => {
-            setAnnouncementText(null);
-            playNextTrack();
-          };
-          await audio.play();
-          return;
-        } else if (data.text) {
-          setAnnouncementText(data.text);
-          setTimeout(() => setAnnouncementText(null), 5000);
+      if (tracksSinceAnnounceRef.current >= config.announcementInterval) {
+        tracksSinceAnnounceRef.current = 0;
+        try {
+          const res = await fetch(`/api/radio/announce?period=${period}`);
+          const data = await res.json();
+          if (data.audio) {
+            setAnnouncementText(data.text);
+            audio.src = `data:audio/mp3;base64,${data.audio}`;
+            audio.onended = () => {
+              setAnnouncementText(null);
+              playNextTrackRef.current();
+            };
+            await audio.play();
+            return;
+          } else if (data.text) {
+            setAnnouncementText(data.text);
+            setTimeout(() => setAnnouncementText(null), 5000);
+          }
+        } catch {
+          // Skip announcement on failure
         }
-      } catch {
-        // Skip announcement on failure
       }
-    }
 
-    playNextTrack();
+      playNextTrackRef.current();
+    };
+
+    playNextTrackRef.current = () => {
+      const audio = audioRef.current;
+      if (!audio || queueRef.current.length === 0) return;
+
+      if (queueIndexRef.current >= queueRef.current.length) {
+        queueIndexRef.current = 0;
+      }
+
+      const track = queueRef.current[queueIndexRef.current];
+      queueIndexRef.current++;
+      tracksSinceAnnounceRef.current++;
+
+      setCurrentTrack(track);
+      audio.src = track.file;
+      audio.onended = () => playNextRef.current();
+      audio.play().catch(() => setIsPlaying(false));
+    };
   }, [period]);
 
-  const playNextTrack = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio || queueRef.current.length === 0) return;
-
-    // Loop queue
-    if (queueIndexRef.current >= queueRef.current.length) {
-      queueIndexRef.current = 0;
-    }
-
-    const track = queueRef.current[queueIndexRef.current];
-    queueIndexRef.current++;
-    tracksSinceAnnounceRef.current++;
-
-    setCurrentTrack(track);
-    audio.src = track.file;
-    audio.onended = () => playNext();
-    audio.play().catch(() => setIsPlaying(false));
-  }, [playNext]);
-
-  const handleTogglePlay = useCallback(async () => {
+  async function handleTogglePlay() {
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -129,13 +132,13 @@ export function RadioPlayer() {
         await fetchPlaylist(period);
       }
       if (queueRef.current.length > 0 && !audio.src) {
-        playNextTrack();
+        playNextTrackRef.current();
       } else {
         audio.play().catch(() => {});
       }
       setIsPlaying(true);
     }
-  }, [isPlaying, period, fetchPlaylist, playNextTrack]);
+  }
 
   // When period changes, reload playlist after current track ends
   useEffect(() => {
@@ -143,21 +146,16 @@ export function RadioPlayer() {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handlePeriodSwitch = async () => {
-      await fetchPlaylist(period);
-      playNextTrack();
-    };
-
-    // Wait for current track to end, then switch
     const originalOnEnded = audio.onended;
-    audio.onended = () => {
-      handlePeriodSwitch();
+    audio.onended = async () => {
+      await fetchPlaylist(period);
+      playNextTrackRef.current();
     };
 
     return () => {
       audio.onended = originalOnEnded;
     };
-  }, [period]);
+  }, [period, isPlaying]);
 
   return (
     <div className={`radio-player${expanded ? " radio-player--expanded" : ""}`}>

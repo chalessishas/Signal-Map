@@ -8,10 +8,19 @@ import {
   synthesizeSpeech,
 } from "@/lib/radio";
 
-export const revalidate = 900; // cache for 15 minutes
+export const dynamic = "force-dynamic";
+
+const VALID_PERIODS = new Set<Period>(["morning", "daytime", "evening", "night"]);
 
 export async function GET(req: NextRequest) {
-  const period = (req.nextUrl.searchParams.get("period") as Period) || getCurrentPeriod();
+  const rawPeriod = req.nextUrl.searchParams.get("period");
+  if (rawPeriod && !VALID_PERIODS.has(rawPeriod as Period)) {
+    return NextResponse.json(
+      { error: `Invalid period "${rawPeriod}". Must be one of: morning, daytime, evening, night.` },
+      { status: 400 },
+    );
+  }
+  const period: Period = (rawPeriod as Period) || getCurrentPeriod();
 
   // Fetch upcoming events (next 3 hours)
   const now = new Date();
