@@ -122,6 +122,25 @@
   --map-filter: saturate(0.7) brightness(0.55) contrast(1.15) hue-rotate(-5deg);
 }
 
+/* ═══ Time Period Ambience ═══ */
+
+[data-period="morning"] .leaflet-tile-pane {
+  filter: saturate(1.15) hue-rotate(-8deg) brightness(1.05);
+  transition: filter 30s ease;
+}
+[data-period="daytime"] .leaflet-tile-pane {
+  filter: var(--map-filter);
+  transition: filter 30s ease;
+}
+[data-period="evening"] .leaflet-tile-pane {
+  filter: saturate(1.2) hue-rotate(15deg) brightness(0.92);
+  transition: filter 30s ease;
+}
+[data-period="night"] .leaflet-tile-pane {
+  filter: brightness(0.6) saturate(0.7) contrast(1.1);
+  transition: filter 30s ease;
+}
+
 /* ═══ Reset ═══ */
 
 *, *::before, *::after {

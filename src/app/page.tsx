@@ -4,6 +4,8 @@ import { isDataStale } from "@/lib/ingest/freshness";
 import { ingestAllSources } from "@/lib/ingest/service";
 import { MapPanel } from "@/components/map-panel";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { getCurrentPeriod } from "@/lib/radio";
+import { AmbienceEngine } from "@/components/ambience-engine";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60; // re-render from DB every 60s
@@ -88,8 +90,11 @@ export default async function HomePage() {
   const totalEvents = await prisma.event.count({ where: { status: "ACTIVE" } });
   const activeBuildings = buildings.filter((b) => b.heatLevel > 0).length;
 
+  const initialPeriod = getCurrentPeriod();
+
   return (
     <main className="main-shell">
+      <AmbienceEngine initialPeriod={initialPeriod} />
       <aside className="sidebar">
         <div className="brand-row">
           <div className="brand-icon">
