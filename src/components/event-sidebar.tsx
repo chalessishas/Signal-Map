@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { format } from "date-fns";
+import { createSupabaseBrowser } from "@/lib/supabase/client";
+import { SubmitEventForm } from "./submit-event-form";
 import type { BuildingSummary } from "@/lib/types";
+import type { User } from "@supabase/supabase-js";
 
 type EventItem = {
   id: string;
@@ -14,6 +17,18 @@ type EventItem = {
   category: string | null;
   isCLE: boolean;
   buildingId: string | null;
+};
+
+type CommunityEvent = {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string | null;
+  locationText: string | null;
+  category: string | null;
+  buildingId: string | null;
+  building: { name: string } | null;
+  author: { name: string | null } | null;
 };
 
 type EventSidebarProps = {
@@ -48,10 +63,13 @@ const HEAT_COLORS: Record<number, string> = {
 
 export function EventSidebar({ buildings, categories, activeBuildings, totalEvents }: EventSidebarProps) {
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [showSubmitForm, setShowSubmitForm] = useState(false);
 
   // Build a buildingId -> building lookup
   const buildingMap = useMemo(() => {
@@ -59,6 +77,36 @@ export function EventSidebar({ buildings, categories, activeBuildings, totalEven
     for (const b of buildings) map.set(b.id, b);
     return map;
   }, [buildings]);
+
+  // Track auth state
+  useEffect(() => {
+    const supabase = createSupabaseBrowser();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch community events
+  useEffect(() => {
+    fetch("/api/events/user")
+      .then((res) => res.json())
+      .then((data) => setCommunityEvents(data.events ?? []))
+      .catch(() => {});
+  }, []);
+
+  const handleSubmitClick = async () => {
+    if (user) {
+      setShowSubmitForm(true);
+      return;
+    }
+    const supabase = createSupabaseBrowser();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+  };
 
   // Fetch all events on mount
   useEffect(() => {
@@ -167,6 +215,16 @@ export function EventSidebar({ buildings, categories, activeBuildings, totalEven
               </svg>
             </div>
             <h1>SignalMap</h1>
+            <button
+              type="button"
+              className="sidebar-submit-btn"
+              onClick={handleSubmitClick}
+              title="Submit an event"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
           </div>
           <p className="subtle">UNC Chapel Hill</p>
           <div className="sidebar-stats">
@@ -278,7 +336,62 @@ export function EventSidebar({ buildings, categories, activeBuildings, totalEven
             </div>
           )}
         </div>
+
+        {/* Community Events */}
+        {communityEvents.length > 0 && (
+          <div className="event-sidebar-events community-events-section">
+            <h2 className="event-sidebar-section-title">
+              Community
+              <span className="event-sidebar-section-count">{communityEvents.length}</span>
+            </h2>
+            <div className="event-sidebar-list">
+              {communityEvents.map((ce) => {
+                const start = new Date(ce.startTime);
+                const end = ce.endTime ? new Date(ce.endTime) : null;
+                const now = new Date();
+                const isLive = start <= now && (!end || end >= now);
+
+                return (
+                  <button
+                    key={ce.id}
+                    type="button"
+                    className={`event-sidebar-card${isLive ? " event-sidebar-card--live" : ""}`}
+                    onClick={() => ce.buildingId && handleEventClick(ce.buildingId)}
+                    disabled={!ce.buildingId}
+                  >
+                    <div className="event-sidebar-card-top">
+                      <span className="community-badge">Community</span>
+                      <span className="event-sidebar-card-title">{ce.title}</span>
+                    </div>
+                    <div className="event-sidebar-card-meta">
+                      {ce.building && <span className="event-sidebar-card-building">{ce.building.name}</span>}
+                      {ce.locationText && !ce.building && (
+                        <span className="event-sidebar-card-building">{ce.locationText}</span>
+                      )}
+                      <span className="event-sidebar-card-time">
+                        {isLive ? "Now" : format(start, "MMM d, h:mm a")}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </aside>
+
+      {showSubmitForm && (
+        <SubmitEventForm
+          buildings={buildings}
+          onClose={() => {
+            setShowSubmitForm(false);
+            fetch("/api/events/user")
+              .then((res) => res.json())
+              .then((data) => setCommunityEvents(data.events ?? []))
+              .catch(() => {});
+          }}
+        />
+      )}
     </>
   );
 }

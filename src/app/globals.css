@@ -1719,3 +1719,201 @@ a {
 .event-card--past {
   opacity: 0.7;
 }
+
+/* ═══════════════════════════════════════════
+   Sidebar Submit Button
+   ═══════════════════════════════════════════ */
+
+.sidebar-submit-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.sidebar-submit-btn:hover {
+  background: var(--accent);
+  color: var(--text-inverse);
+  border-color: var(--accent);
+  transform: scale(1.08);
+}
+
+/* ═══════════════════════════════════════════
+   Community Badge
+   ═══════════════════════════════════════════ */
+
+.community-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: white;
+  background: linear-gradient(135deg, #7c3aed, var(--accent));
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+.community-events-section {
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ═══════════════════════════════════════════
+   Submit Event Form (Modal Overlay)
+   ═══════════════════════════════════════════ */
+
+.submit-event-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.submit-event-form {
+  width: 100%;
+  max-width: 480px;
+  background: var(--panel-bg);
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+  padding: 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.submit-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.submit-form-header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.submit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.submit-field span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.2px;
+}
+
+.submit-field input,
+.submit-field select,
+.submit-field textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.submit-field input:focus,
+.submit-field select:focus,
+.submit-field textarea:focus {
+  border-color: var(--accent);
+  background: var(--bg-subtle);
+}
+
+.submit-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.submit-row {
+  display: flex;
+  gap: 12px;
+}
+
+.submit-row .submit-field {
+  flex: 1;
+}
+
+.submit-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--text-inverse);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+  margin-top: 4px;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.submit-error {
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(250, 82, 82, 0.08);
+  border: 1px solid rgba(250, 82, 82, 0.2);
+  border-radius: var(--radius-xs);
+  color: var(--heat-4);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.submit-success {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.submit-success h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.submit-success p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
