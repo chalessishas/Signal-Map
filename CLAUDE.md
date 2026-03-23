@@ -97,13 +97,13 @@ public/            GeoJSON + 静态资源
 
 ## Known Pitfalls
 
-1. **`ignoreBuildErrors: true` in next.config.ts** -- 最大技术债，隐藏所有 TS 错误
+1. ~~**`ignoreBuildErrors: true`**~~ -- **已修复 (2026-03-23)**，tsc 零错误后移除
 2. **Supabase direct URL 不可用** -- 只能用 session pooler (port 5432)，不要用 directUrl/port 6543
 3. **Transaction pooler 会挂起 Prisma** -- 必须用 session pooler
 4. **Leaflet + React Strict Mode** -- 双重初始化，需 cleanup 逻辑
 5. **建筑匹配率 74%** -- 26% 事件无法关联建筑
 6. **Prisma seed 配置将废弃** -- 未来需迁移到 prisma.config.ts
-7. **Vercel Cron 未配置** -- vercel.json 未设置，仅手动触发 ingest
+7. ~~**Vercel Cron 未配置**~~ -- **已修复 (2026-03-23)**，vercel.json 配置每小时执行 ingest
 8. **移动端未优化** -- 布局假设桌面视口
 9. **无自动化测试** -- API、ingest pipeline、normalizer 均无覆盖
 10. **用 `db push` 而非 `prisma migrate`** -- 生产环境应切换
