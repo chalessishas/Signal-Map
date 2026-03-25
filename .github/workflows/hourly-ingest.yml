@@ -1,0 +1,23 @@
+name: Hourly Ingest
+
+on:
+  schedule:
+    - cron: "17 * * * *" # Every hour at :17 (offset to avoid :00 congestion)
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger ingest endpoint
+        env:
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://hdmap.live/api/cron/ingest" \
+            -H "Authorization: Bearer ${ADMIN_TOKEN}")
+          echo "Ingest returned HTTP ${STATUS}"
+          if [ "$STATUS" -ne 200 ]; then
+            echo "::error::Ingest failed with status ${STATUS}"
+            exit 1
+          fi
