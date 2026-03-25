@@ -93,7 +93,8 @@ public/            GeoJSON + 静态资源
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | |
 | `ADMIN_TOKEN` | Yes (prod) | 管理端点认证 |
 | `CRON_SECRET` | Optional | Vercel Cron |
-| `DEEPSEEK_API_KEY` | Yes if radio | AI 播报 |
+| `DEEPSEEK_API_KEY` | Yes if radio | AI 播报文案生成 |
+| `DASHSCOPE_API_KEY` | Yes if radio | 阿里 DashScope qwen3-tts-flash 语音合成 |
 
 ## Known Pitfalls
 

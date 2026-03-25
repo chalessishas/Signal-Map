@@ -1,6 +1,130 @@
 {
-  "morning": [],
-  "daytime": [],
-  "evening": [],
-  "night": []
+  "morning": [
+    {
+      "title": "Bicycle",
+      "artist": "Komiku",
+      "file": "/radio/morning/Komiku - Bicycle.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Disco Cat",
+      "artist": "Komiku",
+      "file": "/radio/morning/Komiku - Disco Cat.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Opening",
+      "artist": "Komiku",
+      "file": "/radio/morning/Komiku - Opening.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Surfing",
+      "artist": "Komiku",
+      "file": "/radio/morning/Komiku - Surfing.mp3",
+      "duration": 0
+    },
+    {
+      "title": "The Weekly Fair",
+      "artist": "Komiku",
+      "file": "/radio/morning/Komiku - The Weekly Fair.mp3",
+      "duration": 0
+    }
+  ],
+  "daytime": [
+    {
+      "title": "Chill Out Theme",
+      "artist": "Komiku",
+      "file": "/radio/daytime/Komiku - Chill Out Theme.mp3",
+      "duration": 0
+    },
+    {
+      "title": "A Cup of Tea",
+      "artist": "TAD",
+      "file": "/radio/daytime/TAD - A Cup of Tea.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Countryside",
+      "artist": "TAD",
+      "file": "/radio/daytime/TAD - Countryside.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Cue",
+      "artist": "TAD",
+      "file": "/radio/daytime/TAD - Cue.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Chill Lofi Inspired",
+      "artist": "omfgdude",
+      "file": "/radio/daytime/omfgdude - Chill Lofi Inspired.mp3",
+      "duration": 0
+    }
+  ],
+  "evening": [
+    {
+      "title": "Friends 2068",
+      "artist": "Komiku",
+      "file": "/radio/evening/Komiku - Friends 2068.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Good Fellow",
+      "artist": "Komiku",
+      "file": "/radio/evening/Komiku - Good Fellow.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Love Planet",
+      "artist": "Komiku",
+      "file": "/radio/evening/Komiku - Love Planet.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Sunset on the Beach",
+      "artist": "Komiku",
+      "file": "/radio/evening/Komiku - Sunset on the Beach.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Tea with Granma",
+      "artist": "Komiku",
+      "file": "/radio/evening/Komiku - Tea with Granma.mp3",
+      "duration": 0
+    }
+  ],
+  "night": [
+    {
+      "title": "Night in a Seashell",
+      "artist": "Komiku",
+      "file": "/radio/night/Komiku - Night in a Seashell.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Quiet Saturday",
+      "artist": "Komiku",
+      "file": "/radio/night/Komiku - Quiet Saturday.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Serenity Temple",
+      "artist": "Komiku",
+      "file": "/radio/night/Komiku - Serenity Temple.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Caller",
+      "artist": "SpringySpringo",
+      "file": "/radio/night/SpringySpringo - Caller.mp3",
+      "duration": 0
+    },
+    {
+      "title": "Monoliths",
+      "artist": "SpringySpringo",
+      "file": "/radio/night/SpringySpringo - Monoliths.mp3",
+      "duration": 0
+    }
+  ]
 }

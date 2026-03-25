@@ -65,13 +65,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ period, text: null, audio: null });
   }
 
-  // Synthesize with ElevenLabs
+  // Synthesize with DashScope TTS (returns base64 WAV)
   let audio: string | null = null;
   try {
     audio = await synthesizeSpeech(text);
   } catch (err) {
-    console.error("ElevenLabs failed:", err);
-    // Fallback: return text only, no audio
+    console.error("DashScope TTS failed:", err);
   }
 
   return NextResponse.json({ period, text, audio });

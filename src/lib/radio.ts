@@ -93,34 +93,44 @@ export async function generateAnnouncementText(
   return data.choices[0].message.content.trim();
 }
 
-/** Call ElevenLabs to synthesize speech from text. Returns base64 MP3. */
+/** Call DashScope qwen3-tts-flash to synthesize speech. Returns base64 WAV audio. */
 export async function synthesizeSpeech(text: string): Promise<string> {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID;
-  if (!apiKey || !voiceId) throw new Error("ElevenLabs env vars not set");
+  const apiKey = process.env.DASHSCOPE_API_KEY;
+  if (!apiKey) throw new Error("DASHSCOPE_API_KEY not set");
 
   const res = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+    "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "xi-api-key": apiKey,
+        "X-DashScope-SSE": "enable",
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        text,
-        model_id: "eleven_multilingual_v2",
-        voice_settings: { stability: 0.4, similarity_boost: 0.75 },
+        model: "qwen3-tts-flash",
+        input: {
+          text: text.slice(0, 600),
+          voice: "Ethan",
+          language_type: "English",
+        },
       }),
     },
   );
 
-  if (!res.ok) {
-    const status = res.status;
-    throw new Error(`ElevenLabs API error: ${status}`);
+  if (!res.ok) throw new Error(`DashScope TTS error: ${res.status}`);
+
+  // SSE response: base64 audio is spread across multiple data: chunks, concatenate all
+  const body = await res.text();
+  const dataLines = body.split("\n").filter((l) => l.startsWith("data:"));
+
+  let audioData = "";
+  for (const line of dataLines) {
+    const parsed = JSON.parse(line.slice(5));
+    if (parsed.code) throw new Error(`DashScope TTS: ${parsed.code} ${parsed.message}`);
+    audioData += parsed.output?.audio?.data ?? "";
   }
 
-  const arrayBuffer = await res.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
-  return base64;
+  if (!audioData) throw new Error("DashScope TTS: no audio data in response");
+  return audioData;
 }

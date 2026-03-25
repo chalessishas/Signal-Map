@@ -82,7 +82,7 @@ export function RadioPlayer() {
           const data = await res.json();
           if (data.audio) {
             setAnnouncementText(data.text);
-            audio.src = `data:audio/mp3;base64,${data.audio}`;
+            audio.src = `data:audio/wav;base64,${data.audio}`;
             audio.onended = () => {
               setAnnouncementText(null);
               playNextTrackRef.current();
