@@ -71,6 +71,30 @@ const ABBREVIATIONS: Record<string, string> = {
   "mh": "memorial hall",
   "gb": "genome sciences building",
   "fd": "fetzer",
+  "mas": "medical education building",
+  "pcm": "phillips hall",
+};
+
+/**
+ * Direct location text → building ID mappings for locations the fuzzy matcher can't resolve.
+ * Covers: typos, informal names, sub-locations within known buildings.
+ */
+const DIRECT_MAPPINGS: Record<string, string> = {
+  // Typos
+  "aumni hall": "bld_015",           // "Aumni Hall 0207" → Alumni Hall
+  // Informal / partial names
+  "genome science": "bld_020",       // Genome Sciences Building
+  "genome": "bld_020",
+  "smith": "bld_026",                // Dean E. Smith Center
+  "bell": "bld_076",                 // Bell Hall
+  "cuab": "bld_001",                 // CUAB Suite is in Student Union
+  "cuab suite": "bld_001",
+  "library data services": "bld_018", // Davis Library
+  "media and design center": "bld_143", // Curtis Media Center
+  "weaver": "bld_001",               // Weavers Grove events default to Student Union (closest hub)
+  "weavers grove": "bld_001",
+  "weavers grove build": "bld_001",
+  "carolina women's center": "bld_001", // Located in Student Union
 };
 
 export async function resolveBuildingId(
@@ -81,6 +105,14 @@ export async function resolveBuildingId(
 ): Promise<string | undefined> {
   // Strategy 1: Match by name/alias with scored fuzzy matching
   if (locationText) {
+    // Strategy 0: Direct mapping for known typos/informal names
+    const locLower = locationText.toLowerCase().replace(/\s+\d+$/, "").trim(); // strip room numbers
+    for (const [pattern, buildingId] of Object.entries(DIRECT_MAPPINGS)) {
+      if (locLower === pattern || locLower.startsWith(pattern + " ")) {
+        return buildingId;
+      }
+    }
+
     // Strategy 1a: Check abbreviation prefix first (e.g. "GL-0104" → "greenlaw")
     const prefixMatch = locationText.match(/^([A-Za-z]{2,4})[\s\-]/);
     if (prefixMatch) {
