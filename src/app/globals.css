@@ -1501,6 +1501,62 @@ a {
   text-align: center;
 }
 
+.radio-playlist {
+  margin-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.radio-playlist-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.radio-playlist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.radio-playlist-item--active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.radio-playlist-idx {
+  width: 16px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.radio-playlist-track {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.radio-playlist-now {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb, 66 99 235), 0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
 /* ═══════════════════════════════════════════
    Comments
    ═══════════════════════════════════════════ */

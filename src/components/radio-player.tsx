@@ -23,6 +23,7 @@ export function RadioPlayer() {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [announcementText, setAnnouncementText] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [playlist, setPlaylist] = useState<Track[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const queueRef = useRef<Track[]>([]);
@@ -62,8 +63,10 @@ export function RadioPlayer() {
       const data = await res.json();
       queueRef.current = data.tracks ?? [];
       queueIndexRef.current = 0;
+      setPlaylist(data.tracks ?? []);
     } catch {
       queueRef.current = [];
+      setPlaylist([]);
     }
   }
 
@@ -207,6 +210,25 @@ export function RadioPlayer() {
           <div className="radio-period-label">
             {PERIOD_ICONS[period]} {PERIOD_CONFIG[period].label}
           </div>
+          {playlist.length > 0 && (
+            <div className="radio-playlist">
+              <div className="radio-playlist-title">Playlist</div>
+              {playlist.map((t, i) => (
+                <div
+                  key={t.file}
+                  className={`radio-playlist-item${currentTrack?.file === t.file ? " radio-playlist-item--active" : ""}`}
+                >
+                  <span className="radio-playlist-idx">{i + 1}</span>
+                  <span className="radio-playlist-track">
+                    {t.artist !== "Unknown" ? `${t.artist} — ${t.title}` : t.title}
+                  </span>
+                  {currentTrack?.file === t.file && (
+                    <span className="radio-playlist-now">NOW</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
