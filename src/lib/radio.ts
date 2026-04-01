@@ -110,7 +110,7 @@ export async function synthesizeSpeech(text: string): Promise<string> {
       body: JSON.stringify({
         model: "qwen3-tts-flash",
         input: {
-          text: text.slice(0, 600),
+          text,
           voice: "Ethan",
           language_type: "English",
         },
@@ -120,17 +120,22 @@ export async function synthesizeSpeech(text: string): Promise<string> {
 
   if (!res.ok) throw new Error(`DashScope TTS error: ${res.status}`);
 
-  // SSE response: base64 audio is spread across multiple data: chunks, concatenate all
+  // SSE response: each chunk has independently base64-encoded audio
+  // Must decode each chunk separately, then concat raw bytes, then re-encode
   const body = await res.text();
   const dataLines = body.split("\n").filter((l) => l.startsWith("data:"));
 
-  let audioData = "";
+  const buffers: Buffer[] = [];
   for (const line of dataLines) {
     const parsed = JSON.parse(line.slice(5));
     if (parsed.code) throw new Error(`DashScope TTS: ${parsed.code} ${parsed.message}`);
-    audioData += parsed.output?.audio?.data ?? "";
+    const b64 = parsed.output?.audio?.data;
+    if (b64) buffers.push(Buffer.from(b64, "base64"));
   }
 
-  if (!audioData) throw new Error("DashScope TTS: no audio data in response");
-  return audioData;
+  if (buffers.length === 0) throw new Error("DashScope TTS: no audio data in response");
+
+  // First chunk has WAV header, rest are raw PCM — concat all
+  const combined = Buffer.concat(buffers);
+  return combined.toString("base64");
 }

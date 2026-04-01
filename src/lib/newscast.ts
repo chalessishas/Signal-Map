@@ -2,7 +2,7 @@
 // Campus morning briefing: RSS news + weather + today's events → AI script → TTS
 
 import { prisma } from "@/lib/prisma";
-import { generateAnnouncementText, synthesizeSpeech } from "@/lib/radio";
+import { generateAnnouncementText } from "@/lib/radio";
 
 // ── RSS Sources ──
 
@@ -195,6 +195,105 @@ Keep total length under 400 words. Speak in English only.`,
   return data.choices[0].message.content.trim();
 }
 
+// ── Long-form TTS (split into chunks, synthesize each, concatenate PCM) ──
+
+/** Synthesize a single chunk (<500 chars) via DashScope. Returns raw PCM Int16 samples. */
+async function ttsChunk(text: string): Promise<Buffer> {
+  const apiKey = process.env.DASHSCOPE_API_KEY;
+  if (!apiKey) throw new Error("DASHSCOPE_API_KEY not set");
+
+  const res = await fetch(
+    "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-DashScope-SSE": "enable",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "qwen3-tts-flash",
+        input: { text, voice: "Ethan", language_type: "English" },
+      }),
+    },
+  );
+
+  if (!res.ok) throw new Error(`DashScope TTS error: ${res.status}`);
+
+  const body = await res.text();
+  const dataLines = body.split("\n").filter((l) => l.startsWith("data:"));
+
+  // Decode each SSE chunk separately then concat raw bytes
+  const buffers: Buffer[] = [];
+  for (const line of dataLines) {
+    const parsed = JSON.parse(line.slice(5));
+    if (parsed.code) throw new Error(`DashScope TTS: ${parsed.code} ${parsed.message}`);
+    const b64 = parsed.output?.audio?.data;
+    if (b64) buffers.push(Buffer.from(b64, "base64"));
+  }
+
+  if (buffers.length === 0) throw new Error("DashScope TTS: no audio data");
+
+  // First buffer has WAV header (44 bytes), rest are raw PCM
+  const combined = Buffer.concat(buffers);
+  return combined.subarray(44); // strip WAV header, return raw PCM
+}
+
+/** Split text into ~450-char chunks at sentence boundaries. */
+function splitIntoChunks(text: string, maxLen = 450): string[] {
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const s of sentences) {
+    if (current.length + s.length + 1 > maxLen && current) {
+      chunks.push(current.trim());
+      current = s;
+    } else {
+      current += (current ? " " : "") + s;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
+/** Synthesize long text by chunking → TTS each → concatenate PCM → WAV. */
+export async function synthesizeLongSpeech(text: string): Promise<string> {
+  const chunks = splitIntoChunks(text);
+  const pcmBuffers: Buffer[] = [];
+
+  for (const chunk of chunks) {
+    const pcm = await ttsChunk(chunk);
+    pcmBuffers.push(pcm);
+  }
+
+  const pcmData = Buffer.concat(pcmBuffers);
+
+  // Build WAV header (16-bit PCM, mono, 16kHz)
+  const sampleRate = 16000;
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const dataSize = pcmData.length;
+  const header = Buffer.alloc(44);
+
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + dataSize, 4);
+  header.write("WAVE", 8);
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);           // fmt chunk size
+  header.writeUInt16LE(1, 20);            // PCM format
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * numChannels * bitsPerSample / 8, 28);
+  header.writeUInt16LE(numChannels * bitsPerSample / 8, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  const wav = Buffer.concat([header, pcmData]);
+  return wav.toString("base64");
+}
+
 // ── Full Pipeline ──
 
 export async function generateTodayNewscast(): Promise<{
@@ -234,7 +333,7 @@ export async function generateTodayNewscast(): Promise<{
   // TTS
   let audioBase64: string | null = null;
   try {
-    audioBase64 = await synthesizeSpeech(script);
+    audioBase64 = await synthesizeLongSpeech(script);
   } catch (err) {
     console.error("Newscast TTS failed:", err);
   }
