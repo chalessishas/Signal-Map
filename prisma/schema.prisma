@@ -129,3 +129,18 @@ model Comment {
   @@index([buildingId])
   @@index([authorId])
 }
+
+model NewscastEpisode {
+  id          String   @id @default(cuid())
+  date        DateTime @unique // one episode per day, stored as midnight ET
+  title       String   // "Tar Heel Morning Brief — Apr 1, 2026"
+  script      String   // full broadcast text
+  audioUrl    String?  // path to stored MP3/WAV
+  audioBase64 String?  // inline base64 audio (fallback if no storage)
+  durationSec Int?     // audio duration in seconds
+  sources     String   @default("[]") // JSON: [{title, url, source}]
+  weather     String?  // JSON: {temp, condition, high, low}
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+}

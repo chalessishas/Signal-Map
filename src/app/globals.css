@@ -1385,6 +1385,136 @@ a {
   }
 }
 
+/* ═══ Newscast Player ═══ */
+
+.newscast {
+  position: absolute;
+  bottom: 72px;
+  right: 24px;
+  z-index: 1050;
+  background: var(--bg-elevated, #fff);
+  border-radius: var(--radius, 14px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  max-width: 360px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.newscast--expanded {
+  max-width: 400px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.newscast-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+.newscast-bar:hover { background: var(--bg-subtle, #f1f3f5); }
+
+.newscast-icon { font-size: 18px; }
+
+.newscast-play-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent, #4263eb);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.newscast-play-btn:hover { transform: scale(1.1); }
+
+.newscast-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.newscast-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.newscast-title--empty { color: var(--text-tertiary); }
+.newscast-date {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.newscast-detail {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border-subtle, #e9ecef);
+}
+
+.newscast-weather {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 10px 0 8px;
+  border-bottom: 1px solid var(--border-subtle, #e9ecef);
+}
+
+.newscast-script {
+  padding: 10px 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+.newscast-script p {
+  margin: 0 0 8px;
+}
+
+.newscast-sources {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle, #e9ecef);
+}
+.newscast-sources-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+.newscast-source-link {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.newscast-source-link:hover { color: var(--accent); }
+.newscast-source-name {
+  font-weight: 600;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.newscast-source-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.newscast-error {
+  padding: 6px 14px;
+  font-size: 11px;
+  color: #e03131;
+  background: rgba(224,49,49,0.06);
+}
+
 /* ═══ Radio Player ═══ */
 
 .radio-player {
@@ -2244,6 +2374,164 @@ a {
   margin: 0; font-size: 14px; line-height: 1.6; font-style: italic;
   color: var(--text-primary, #1a1a2e);
   border-left: 3px solid var(--accent, #4263eb); padding-left: 12px;
+}
+
+/* Player section in dashboard */
+.rd-player-section {
+  background: var(--surface, #f8f9fa);
+  border: 1px solid var(--border-subtle, #e9ecef);
+  border-radius: 12px;
+  padding: 20px;
+}
+.rd-player-section .radio-player {
+  position: static;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+/* ── Full-Day Timeline ── */
+.rd-timeline-subtitle {
+  font-size: 12px;
+  color: var(--text-tertiary, #888);
+  margin: 0 0 16px;
+}
+
+.rd-timeline-bar {
+  display: flex;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  border: 1px solid var(--border-subtle, #e9ecef);
+}
+
+.rd-timeline-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: opacity 0.2s;
+  opacity: 0.7;
+}
+.rd-timeline-segment--active {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4);
+}
+.rd-timeline-segment-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  white-space: nowrap;
+}
+
+/* ── Schedule Grid ── */
+.rd-schedule-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 700px) {
+  .rd-schedule-grid { grid-template-columns: 1fr; }
+}
+
+.rd-schedule-block {
+  border: 1px solid var(--border-subtle, #e9ecef);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.rd-schedule-block--active {
+  border-color: var(--accent, #4263eb);
+  box-shadow: 0 0 0 1px var(--accent, #4263eb);
+}
+
+.rd-schedule-block-header {
+  padding: 12px 16px;
+  border-left: 4px solid;
+  background: var(--surface, #f8f9fa);
+}
+.rd-schedule-time {
+  font-size: 11px;
+  color: var(--text-tertiary, #888);
+  font-weight: 500;
+}
+.rd-schedule-period {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0;
+}
+.rd-schedule-meta {
+  font-size: 11px;
+  color: var(--text-secondary, #555);
+}
+
+.rd-schedule-items {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rd-schedule-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.rd-schedule-item--track:hover {
+  background: var(--surface, #f8f9fa);
+}
+.rd-schedule-item--announce {
+  margin: 4px 0;
+}
+.rd-schedule-announce-chip {
+  background: var(--accent, #4263eb);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+.rd-schedule-item-num {
+  width: 18px;
+  text-align: right;
+  color: var(--text-tertiary, #888);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.rd-schedule-item-title {
+  flex: 1;
+  font-weight: 500;
+}
+.rd-schedule-item-artist {
+  color: var(--text-secondary, #555);
+  font-size: 11px;
+}
+
+/* ── Announcement Cards Grid ── */
+.rd-announce-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 700px) {
+  .rd-announce-grid { grid-template-columns: 1fr; }
+}
+.rd-announce-card {
+  background: var(--surface, #f8f9fa);
+  border-radius: 10px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-subtle, #e9ecef);
+}
+.rd-announce-card-header {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
 .rd-footer {

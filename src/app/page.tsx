@@ -8,6 +8,7 @@ import type { HeatLevel } from "@/lib/types";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { getCurrentPeriod } from "@/lib/radio";
 import { AmbienceEngine } from "@/components/ambience-engine";
+import { NewscastPlayer } from "@/components/newscast-player";
 
 export const dynamic = "force-dynamic";
 
