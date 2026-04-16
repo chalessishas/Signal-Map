@@ -73,7 +73,7 @@ public/            GeoJSON + 静态资源
 - **热力等级 T0-T4:** 灰/绿/黄/橙/红 + CSS 呼吸光动画
 - **CLE 标识:** 蓝色 #339af0 + 光晕 + 虚线边框
 - **事件去重:** sourceId 唯一约束，ingest 时 upsert
-- **建筑匹配:** 缩写前缀 → 60%+ token 重叠 → Haversine <500m → null fallback
+- **建筑匹配:** 缩写前缀 → 60%+ token 重叠 → Haversine <100m → null fallback（文档曾写 500m，实际代码自 initial commit e601471 起一直为 100m；2026-04-16 normalizer 重构引入多地点拆分 + 最小长度 guard + 可选 no-match logging，见 commit a0feb5b）
 - **Ingest 保护:** 55s 超时，fire-and-forget，每源独立错误隔离
 - **毛玻璃面板:** backdrop-filter: blur(20px)
 - **暗色模式:** CSS variables 切换
