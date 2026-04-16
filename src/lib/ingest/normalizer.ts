@@ -22,8 +22,13 @@ function matchScore(source: string, candidate: string): number {
   const sSimple = simplify(source);
   const cSimple = simplify(candidate);
 
-  // Exact substring match (strongest signal)
-  if (sSimple.includes(cSimple) || cSimple.includes(sSimple)) return 1;
+  // Exact substring match (strongest signal). Guard against short substrings
+  // matching everything — e.g. "hall" as a candidate would otherwise score 1
+  // against any event location containing "hall" ("Smith Hall 102", etc).
+  // Require the shorter side to be ≥5 chars so abbreviations/generic words
+  // don't trigger a perfect match.
+  const shorterLen = Math.min(sSimple.length, cSimple.length);
+  if (shorterLen >= 5 && (sSimple.includes(cSimple) || cSimple.includes(sSimple))) return 1;
 
   // Token overlap — for "Davis Library" matching "Davis Lib" or reordered words
   const sTokens = tokenize(source);
@@ -97,6 +102,61 @@ const DIRECT_MAPPINGS: Record<string, string> = {
   "carolina women's center": "bld_001", // Located in Student Union
 };
 
+/**
+ * Text-only resolution (Strategies 0 / 1a / 1b without coordinate fallback).
+ * Extracted so callers can iterate over split multi-location strings
+ * ("Phillips 215 / Sitterson 102") part-by-part.
+ */
+function resolveByText(locationText: string, buildings: BuildingRow[]): string | undefined {
+  // Strategy 0: Direct mapping for known typos/informal names
+  const locLower = locationText.toLowerCase().replace(/\s+\d+$/, "").trim(); // strip trailing room numbers
+  for (const [pattern, buildingId] of Object.entries(DIRECT_MAPPINGS)) {
+    if (locLower === pattern || locLower.startsWith(pattern + " ")) {
+      return buildingId;
+    }
+  }
+
+  // Strategy 1a: Abbreviation prefix (e.g. "GL-0104" → "greenlaw")
+  const prefixMatch = locationText.match(/^([A-Za-z]{2,4})[\s\-]/);
+  if (prefixMatch) {
+    const abbr = prefixMatch[1].toLowerCase();
+    const expanded = ABBREVIATIONS[abbr];
+    if (expanded) {
+      for (const building of buildings) {
+        if (matchScore(building.name, expanded) >= 0.6) {
+          return building.id;
+        }
+      }
+    }
+  }
+
+  // Strategy 1b: Score each building (name + aliases) against the location text
+  let bestScore = 0;
+  let bestId: string | undefined;
+
+  for (const building of buildings) {
+    let aliases: string[] = [];
+    try {
+      const parsed = JSON.parse(building.aliases);
+      if (Array.isArray(parsed)) aliases = parsed;
+    } catch {
+      // malformed aliases — skip
+    }
+
+    const labels = [building.name, ...aliases];
+    for (const label of labels) {
+      const score = matchScore(locationText, label);
+      if (score > bestScore) {
+        bestScore = score;
+        bestId = building.id;
+      }
+    }
+  }
+
+  // Require at least 0.6 to avoid false positives
+  return bestId && bestScore >= 0.6 ? bestId : undefined;
+}
+
 export async function resolveBuildingId(
   locationText: string | undefined,
   lat: number | undefined,
@@ -105,53 +165,17 @@ export async function resolveBuildingId(
 ): Promise<string | undefined> {
   // Strategy 1: Match by name/alias with scored fuzzy matching
   if (locationText) {
-    // Strategy 0: Direct mapping for known typos/informal names
-    const locLower = locationText.toLowerCase().replace(/\s+\d+$/, "").trim(); // strip room numbers
-    for (const [pattern, buildingId] of Object.entries(DIRECT_MAPPINGS)) {
-      if (locLower === pattern || locLower.startsWith(pattern + " ")) {
-        return buildingId;
-      }
+    // Split multi-location strings like "Phillips 215 / Sitterson 102" or
+    // "Kenan Stadium; Carmichael" — try each part, return first success.
+    // When no delimiter is present, parts = [locationText] (original behavior).
+    const parts = /[\/;]/.test(locationText)
+      ? locationText.split(/\s*[\/;]\s*/).map((p) => p.trim()).filter(Boolean)
+      : [locationText];
+
+    for (const part of parts) {
+      const id = resolveByText(part, buildings);
+      if (id) return id;
     }
-
-    // Strategy 1a: Check abbreviation prefix first (e.g. "GL-0104" → "greenlaw")
-    const prefixMatch = locationText.match(/^([A-Za-z]{2,4})[\s\-]/);
-    if (prefixMatch) {
-      const abbr = prefixMatch[1].toLowerCase();
-      const expanded = ABBREVIATIONS[abbr];
-      if (expanded) {
-        for (const building of buildings) {
-          if (matchScore(building.name, expanded) >= 0.6) {
-            return building.id;
-          }
-        }
-      }
-    }
-
-    // Strategy 1b: Score each building against the location text
-    let bestScore = 0;
-    let bestId: string | undefined;
-
-    for (const building of buildings) {
-      let aliases: string[] = [];
-      try {
-        const parsed = JSON.parse(building.aliases);
-        if (Array.isArray(parsed)) aliases = parsed;
-      } catch {
-        // malformed aliases — skip
-      }
-
-      const labels = [building.name, ...aliases];
-      for (const label of labels) {
-        const score = matchScore(locationText, label);
-        if (score > bestScore) {
-          bestScore = score;
-          bestId = building.id;
-        }
-      }
-    }
-
-    // Require at least 0.6 to avoid false positives
-    if (bestId && bestScore >= 0.6) return bestId;
   }
 
   // Strategy 2: Match by coordinates (find nearest building within 100m)
@@ -167,7 +191,14 @@ export async function resolveBuildingId(
       }
     }
 
-    return bestId;
+    if (bestId) return bestId;
+  }
+
+  // No-match logging — feature-flagged so prod stays quiet by default.
+  // Flip SIGNAL_MAP_LOG_UNMATCHED=1 in Vercel env to accumulate a long-tail
+  // sample of unresolved locationText for data-driven DIRECT_MAPPINGS expansion.
+  if (process.env.SIGNAL_MAP_LOG_UNMATCHED === "1" && locationText) {
+    console.warn(`[normalizer] unmatched location: "${locationText}" (lat=${lat ?? "?"}, lng=${lng ?? "?"})`);
   }
 
   return undefined;
